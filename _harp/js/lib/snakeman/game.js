@@ -9,7 +9,9 @@ define(["./video", "./geometry"], function(video, geometry){
 	}
 
 	function update(){
-
+		if (stage) {
+			stage.update();
+		}
 	}
 
 	function Stage(name){
@@ -18,7 +20,6 @@ define(["./video", "./geometry"], function(video, geometry){
 		this.size = new geometry.Vector(0, 0);
 		this.rect = null;
 		this.surface = null;
-		stage = this;
 		var path = config.path+"stage/"+name+"/";
 		require([path+"main.js"], function(data){
 			stage.size.x = data.structure[0].length;
@@ -94,7 +95,13 @@ define(["./video", "./geometry"], function(video, geometry){
 	}
 
 	Stage.prototype = {
-
+		update: function(){
+			this.tiles.some(function(tile){
+				if (tile.animation) {
+					tile.update();
+				}
+			});
+		}
 	};
 
 	function Tile(stage, pos){
@@ -107,6 +114,8 @@ define(["./video", "./geometry"], function(video, geometry){
 		this.break = false;
 		this.front = false;
 		this.animation = null;
+		this.animationTimer = 0;
+		this.animationIndex = 0;
 		this.index = null;
 	}
 
@@ -122,6 +131,24 @@ define(["./video", "./geometry"], function(video, geometry){
 				this.sprite.depth = 2;
 			} else {
 				this.stage.surface.blit(this.surface, this.rect.pos);
+			}
+		},
+		update: function(){
+			if (this.animation) {
+				this.animationTimer --;
+				if (this.animationTimer <= 0) {
+					if (!this.animationTimer) {
+						this.animationIndex ++;
+						if (this.animationIndex >= this.animation.length) {
+							this.animationIndex = 0;
+						}
+					}
+					var phase = this.animation[this.animationIndex];
+					var x = this.index.x + phase[0];
+					var y = this.index.y + phase[1];
+					this.sprite.surface = video.tilesets[this.stage.name][y][x];
+					this.animationTimer = phase[2];
+				}
 			}
 		}
 	};

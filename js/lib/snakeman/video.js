@@ -93,7 +93,7 @@ define(["./geometry"], function(geometry){
 		update:   function(){
 			this.clear();
 			this.draw();
-			display.ctx.putImageData(this.surface.image, this.offset.x, this.offset.y);
+			// display.ctx.putImageData(this.surface.image, this.offset.x, this.offset.y);
 		}
 	};
 

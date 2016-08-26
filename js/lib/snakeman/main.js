@@ -37,12 +37,12 @@ define(imports, function(geometry, audio, video, game, ui) {
 
 		video.load([
 			{
-				src:      "js/lib/snakeman/text.PNG",
+				src:      "./js/lib/snakeman/text.png",
 				id:       "text",
 				tileSize: 8
 			},
 			{
-				src:      "js/app/stage/smb/smb.PNG",
+				src:      "./js/app/stage/smb/smb.png",
 				id:       "smb",
 				tileSize: 16
 			}
