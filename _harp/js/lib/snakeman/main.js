@@ -17,7 +17,7 @@ define(imports, function(geometry, audio, video, game, ui) {
 			x: 256,
 			y: 224
 		},
-		path:       "/js/app/",
+		path:       "./js/app/",
 		stage:      null,
 		char:       null
 	};
