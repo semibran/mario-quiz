@@ -30,27 +30,24 @@ define(["./geometry"], function(geometry){
 	    config;
 
 	var display = {
-		canvas:   document.createElement("canvas"),
-		ctx:      null,
-		offset:   new geometry.Vector(0, -8),
-		rect:     new geometry.Rect(0, 0, 0, 0),
-		surface:  null,
-		color:    colors.black,
-		children: [],
-		init:     function(size){
-			this.ctx = this.canvas.getContext("2d");
-			this.rect.size.x = size.x;
-			this.rect.size.y = size.y + config.tileSize;
+		canvases:      ["buffer", "background", "foreground"],
+		offset:        new geometry.Vector(0, -8),
+		size:          new geometry.Vector(0,  0),
+		color:         colors.black,
+		children:      [],
+		init:          function(size){
+			this.size.x = size.x;
+			this.size.y = size.y + config.tileSize;
 
-			this.surface = new Surface(this.rect.size);
+			this.foreground = new Surface(size).attach("fg");
+			this.background = new Surface(size).attach("bg");
+			this.buffer     = new Surface(this.size);
 
-			document.body.appendChild(this.canvas);
-			this.canvas.width = size.x;
-			this.canvas.height = size.y;
-			this.update();
+			this.clear();
 		},
 		clear:    function(){
-			this.fill(this.color);
+			this.foreground.clear();
+			this.background.clear();
 		},
 		fill:     function(color){
 			this.surface.fill(this.color);
@@ -58,10 +55,15 @@ define(["./geometry"], function(geometry){
 		draw:     function(surface, offset){
 			offset = offset || new geometry.Vector(0, 0);
 
-			// Draw image if visible flag is set
+			var rect, image;
+
+			// Draw image if this is not the display and the visible flag is set
 			if (this instanceof Sprite && this.visible) {
-				rect = this.rect.added(offset);
-				surface.blit(this.surface, rect);
+				pos = this.rect.pos.added(offset);
+				surface.blit(this.surface, pos);
+				if(surface === display.buffer && this.children.length === 15){
+					// console.log("blitting stage");
+				}
 			}
 
 			// Sort children by depth
@@ -87,13 +89,15 @@ define(["./geometry"], function(geometry){
 
 			// Iterate over and draw children
 			this.children.some(function(child){
-				child.draw(this.surface, this.rect.pos.added(offset));
+				p = this.rect ? this.rect.pos.added(offset) : null;
+				s = this.surface || this.buffer;
+				child.draw(s, p);
 			}, this);
 		},
 		update:   function(){
 			this.clear();
 			this.draw();
-			// display.ctx.putImageData(this.surface.image, this.offset.x, this.offset.y);
+			this.foreground.ctx.drawImage(this.buffer.canvas, this.offset.x, this.offset.y);
 		}
 	};
 
@@ -110,21 +114,19 @@ define(["./geometry"], function(geometry){
 			var image = new Image();
 			image.src = src;
 			image.onload = function(){
-				var x = 0, y = 0, i, j, imageData;
-				display.ctx.drawImage(image, x, y);
-				imageData = display.ctx.getImageData(x, y, image.width, image.height)
-				images[id] = new Surface(imageData);
+				var x = 0, y = 0, i, j, imageData, surface;
+				images[id] = image;
 				if (tileSize) {
 					tilesets[id] = [];
 					for (i = 0; i < image.height / tileSize; i ++) {
 						tilesets[id].push([]);
 						for (j = 0; j < image.width / tileSize; j ++) {
-							imageData = display.ctx.getImageData(x+j*tileSize, y+i*tileSize, tileSize, tileSize);
-							tilesets[id][i].push(new Surface(imageData));
+							surface = new Surface(new geometry.Vector(tileSize, tileSize));
+							surface.ctx.drawImage(image, -j * tileSize, -i * tileSize);
+							tilesets[id][i].push(surface);
 						}
 					}
 				}
-				display.clear();
 				if (recursive && index < root.length - 1) {
 					index ++;
 					loadImage(root[index], true, callback, root, index);
@@ -150,6 +152,7 @@ define(["./geometry"], function(geometry){
 	function Sprite(rect, surface){
 		this.rect = rect;
 		this.surface = surface;
+		this.offset = new geometry.Vector(0, 0);
 		this.depth = 0;
 		this.children = [];
 		this.visible = true;
@@ -172,44 +175,33 @@ define(["./geometry"], function(geometry){
 		}
 	};
 
-	function Surface(x){
-		if (x instanceof ImageData) {
-			this.image = x;
-			this.size = new geometry.Vector(x.width, x.height);
-		} else {
-			this.size = x;
-			this.image = new ImageData(x.x, x.y);
-		}
+	function Surface(size){
+		this.size = size;
+		this.canvas = document.createElement("canvas");
+		this.canvas.width = size.x;
+		this.canvas.height = size.y;
+		this.ctx = this.canvas.getContext("2d");
 	}
 
 	Surface.prototype = {
-		fill: function(color) {
-			for (var i = 0; i < this.image.data.length; i += 4) {
-				this.image.data[i  ] = color.r;
-				this.image.data[i+1] = color.g;
-				this.image.data[i+2] = color.b;
-				this.image.data[i+3] = 255;
-			}
+		clear: function(){
+			this.ctx.clearRect(0, 0, this.size.x, this.size.y);
 		},
-		blit: function(other, offset) {
+		fill: function(color){
+			this.fillStyle = color.rgb();
+			this.ctx.fillRect(0, 0, this.size.x, this.size.y);
+		},
+		blit: function(other, offset){
 			offset = offset || new geometry.Vector(0, 0);
-			var x, y, i, j;
-			for (y = offset.y; y < offset.y + other.size.y; y ++) {
-				for (x = offset.x; x < offset.x + other.size.x; x ++) {
-					i = (y * this.size.x + x) * 4;
-					j = ((y - offset.y) * other.size.x + (x - offset.x)) * 4;
-					if (other.image.data[j+3] === 0 || Color.rgb(other.image.data[j], other.image.data[j+1], other.image.data[j+2]) === colorkey.rgb()) {
-						// Skip this pixel.
-					} else {
-						this.image.data[i  ] = other.image.data[j  ];
-						this.image.data[i+1] = other.image.data[j+1];
-						this.image.data[i+2] = other.image.data[j+2];
-						this.image.data[i+3] = other.image.data[j+3];
-					}
-				}
-			}
+			this.ctx.drawImage(other.canvas, offset.x, offset.y);
+		},
+		attach: function(id){
+			if (id)
+				this.canvas.id = id;
+			document.body.appendChild(this.canvas);
+			return this;
 		}
-	}
+	};
 
 	return {
 		init: init,

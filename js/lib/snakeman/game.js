@@ -125,12 +125,11 @@ define(["./video", "./geometry"], function(video, geometry){
 			for (attribute in data) {
 				this[attribute] = data[attribute];
 			}
-			this.surface = video.tilesets[this.stage.name][data.index.y][data.index.x];
-			if (this.front) {
-				this.sprite = new video.Sprite(this.rect, this.surface).attach(this.stage.sprite);
-				this.sprite.depth = 2;
+			if (!this.animation) {
+				this.stage.sprite.surface.blit(video.tilesets[this.stage.name][data.index.y][data.index.x], this.rect.pos);
+
 			} else {
-				this.stage.surface.blit(this.surface, this.rect.pos);
+				this.sprite = new video.Sprite(this.rect, video.tilesets[this.stage.name][data.index.y][data.index.x]).attach(this.stage.sprite);
 			}
 		},
 		update: function(){

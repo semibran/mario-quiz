@@ -57,7 +57,7 @@ define(imports, function(geometry, audio, video, game, ui) {
 		game.update();
 		video.update();
 		// throw new Error("Debug mode!");
-		setTimeout(loop, 1000 / config.fps);
+		requestAnimationFrame(loop);
 	}
 
 	return {
