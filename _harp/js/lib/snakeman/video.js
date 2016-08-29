@@ -59,11 +59,8 @@ define(["./geometry"], function(geometry){
 
 			// Draw image if this is not the display and the visible flag is set
 			if (this instanceof Sprite && this.visible) {
-				pos = this.rect.pos.added(offset);
+				pos = this.rect.pos.added(display.offset);
 				surface.blit(this.surface, pos);
-				if(surface === display.buffer && this.children.length === 15){
-					// console.log("blitting stage");
-				}
 			}
 
 			// Sort children by depth
@@ -87,17 +84,26 @@ define(["./geometry"], function(geometry){
 				}, this);
 			}, this);
 
+			var p, s;
+
 			// Iterate over and draw children
 			this.children.some(function(child){
-				p = this.rect ? this.rect.pos.added(offset) : null;
-				s = this.surface || this.buffer;
+				p = null;
+				if (this.surface) {
+					s = this.surface;
+				} else {
+					if (child.depth > 0) {
+						s = display.foreground;
+					} else {
+						s = display.background;
+					}
+				}
 				child.draw(s, p);
 			}, this);
 		},
 		update:   function(){
 			this.clear();
 			this.draw();
-			this.foreground.ctx.drawImage(this.buffer.canvas, this.offset.x, this.offset.y);
 		}
 	};
 
@@ -180,7 +186,11 @@ define(["./geometry"], function(geometry){
 		this.canvas = document.createElement("canvas");
 		this.canvas.width = size.x;
 		this.canvas.height = size.y;
+
 		this.ctx = this.canvas.getContext("2d");
+		this.ctx.webkitImageSmoothingEnabled = false;
+		this.ctx.mozImageSmoothingEnabled = false;
+		this.ctx.imageSmoothingEnabled = false;
 	}
 
 	Surface.prototype = {

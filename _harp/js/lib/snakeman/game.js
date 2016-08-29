@@ -1,4 +1,4 @@
-define(["./video", "./geometry"], function(video, geometry){
+define(["./video", "./geometry", "./input"], function(video, geometry, input){
 
 	var config;
 	var stage;
@@ -6,29 +6,58 @@ define(["./video", "./geometry"], function(video, geometry){
 	function init(data){
 		config = data;
 		stage = new Stage(data.stage);
+		input.mouse.listen("click", function(e){
+			var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
+			stage.tilesTyped["?"].some(function(tile){
+				if (tile.rect.contains(pos) && tile.animation) {
+					tile.bump();
+					document.querySelector("html").className = "";
+				}
+			});
+		});
 	}
 
 	function update(){
-		if (stage) {
+		if (stage)
 			stage.update();
-		}
+		input.mouse.listen("move", function(e){
+			var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
+			if(stage.tilesTyped["?"]){
+				var state = "";
+				stage.tilesTyped["?"].some(function(tile){
+					if (tile.rect.contains(pos) && tile.animation)
+						state = "pointer";
+				});
+				document.querySelector("html").className = state;
+			}
+		});
 	}
 
 	function Stage(name){
 		this.name = name;
 		this.tiles = [];
+		this.tilesTyped = {};
 		this.size = new geometry.Vector(0, 0);
+		this.sizeScaled = new geometry.Vector(0, 0);
 		this.rect = null;
-		this.surface = null;
+		this.foreground = null;
+		this.background = null;
+		this.attributes = {};
 		var path = config.path+"stage/"+name+"/";
 		require([path+"main.js"], function(data){
 			stage.size.x = data.structure[0].length;
 			stage.size.y = data.structure.length;
-			stage.rect = new geometry.Rect(0, 0, stage.size.x, stage.size.y);
-			stage.surface = new video.Surface(stage.size.scaled(config.tileSize));
-			stage.sprite = new video.Sprite(stage.rect, stage.surface).attach();
 
-			var row, char, i, j, a, attributes = {}, attribute, value;
+			stage.sizeScaled = stage.size.scaled(config.tileSize);
+
+			stage.rect = new geometry.Rect(0, 0, stage.sizeScaled.x, stage.sizeScaled.y);
+
+			stage.foreground = new video.Sprite(stage.rect, new video.Surface(stage.sizeScaled)).attach();
+			stage.foreground.depth = 2;
+
+			stage.background = new video.Sprite(stage.rect, new video.Surface(stage.sizeScaled)).attach();
+			
+			var row, char, i, j, a, attribute, value, pos;
 			for (i = 0; i < data.map.length; i ++) {
 				row = data.map[i];
 				for (j = 0; j < row.length; j ++) {
@@ -41,13 +70,13 @@ define(["./video", "./geometry"], function(video, geometry){
 						animation: null,
 						index:     new geometry.Vector(j, i)
 					}
-					if(attributes.hasOwnProperty(char))
-						if (Object.prototype.toString.call(attributes[char]) === "[object Array]")
-							attributes[char].push(a);
+					if(stage.attributes.hasOwnProperty(char))
+						if (Object.prototype.toString.call(stage.attributes[char]) === "[object Array]")
+							stage.attributes[char].push(a);
 						else
-							attributes[char] = [attributes[char], a];
+							stage.attributes[char] = [stage.attributes[char], a];
 					else
-						attributes[char] = a
+						stage.attributes[char] = a;
 				}
 			}
 
@@ -55,23 +84,23 @@ define(["./video", "./geometry"], function(video, geometry){
 				value = data.attributes[attribute];
 				if (attribute === "animation") {
 					for (char in value) {
-						if (Object.prototype.toString.call(attributes[char]) === "[object Array]"){
-							for (i = 0; i < attributes[char].length; i ++) {
-								attributes[char][i].animation = value[char];
+						if (Object.prototype.toString.call(stage.attributes[char]) === "[object Array]"){
+							for (i = 0; i < stage.attributes[char].length; i ++) {
+								stage.attributes[char][i].animation = value[char];
 							}
 						} else {
-							attributes[char].animation = value[char];
+							stage.attributes[char].animation = value[char];
 						}
 					}
 				} else {
 					value.split("").some(function(char){
-						if (attributes[char]) {
-							if (Object.prototype.toString.call(attributes[char]) === "[object Array]") {
-								for (i = 0; i < attributes[char].length; i ++) {
-									attributes[char][i][attribute] = true;
+						if (stage.attributes[char]) {
+							if (Object.prototype.toString.call(stage.attributes[char]) === "[object Array]") {
+								for (i = 0; i < stage.attributes[char].length; i ++) {
+									stage.attributes[char][i][attribute] = true;
 								}
 							} else {
-								attributes[char][attribute] = true;
+								stage.attributes[char][attribute] = true;
 							}
 						}
 					});
@@ -82,31 +111,47 @@ define(["./video", "./geometry"], function(video, geometry){
 				row = data.structure[i];
 				for (j = 0; j < stage.size.x; j ++) {
 					char = row[j];
-					a = attributes[char];
-					if (Object.prototype.toString.call(a) === "[object Array]") {
-						a = a[j % a.length];
+					pos = new geometry.Vector(j, i);
+					a = stage.getAttributes(char, pos.x);
+					stage.createTile(pos, char);
+					if (a.nudge) {
+						stage.createTile(pos, " ");
 					}
-					tile = new Tile(stage, new geometry.Vector(j, i));
-					tile.init(a);
-					stage.tiles.push(tile);
 				}
 			}
 		});
 	}
 
 	Stage.prototype = {
-		update: function(){
+		createTile: function(pos, type) {
+			var tile = new Tile(this, pos);
+			var attributes = stage.getAttributes(type, pos.x);
+			tile.init(attributes);
+			this.tiles.push(tile);
+			if (!this.tilesTyped[type])
+				this.tilesTyped[type] = [];
+			this.tilesTyped[type].push(tile);
+			return tile;
+		},
+		getAttributes: function(type, x) {
+			var a = this.attributes[type];
+			if (Object.prototype.toString.call(a) === "[object Array]")
+				a = a[x % a.length];
+			return a;
+		},
+		update: function() {
 			this.tiles.some(function(tile){
-				if (tile.animation) {
+				if (tile.animation || tile.bumping) {
 					tile.update();
 				}
 			});
 		}
 	};
 
-	function Tile(stage, pos){
+	function Tile(stage, pos) {
 		var t = config.tileSize;
 		this.stage = stage;
+		this.pos = pos;
 		this.rect = new geometry.Rect(t*pos.x, t*pos.y, t, t);
 		this.surface = null;
 		this.solid = false;
@@ -116,6 +161,10 @@ define(["./video", "./geometry"], function(video, geometry){
 		this.animation = null;
 		this.animationTimer = 0;
 		this.animationIndex = 0;
+		this.bumping = false;
+		this.bumpHeight = 2;
+		this.gravity = 0.25;
+		this.velocity = new geometry.Vector(0, 0);
 		this.index = null;
 	}
 
@@ -125,11 +174,23 @@ define(["./video", "./geometry"], function(video, geometry){
 			for (attribute in data) {
 				this[attribute] = data[attribute];
 			}
-			if (!this.animation) {
-				this.stage.sprite.surface.blit(video.tilesets[this.stage.name][data.index.y][data.index.x], this.rect.pos);
-
+			var sprite = this.stage[this.front ? "foreground" : "background"];
+			var surface = video.tilesets[this.stage.name][data.index.y][data.index.x];
+			if (!this.animation && !this.nudge && !this.break) {
+				sprite.surface.blit(surface, this.rect.pos);
 			} else {
-				this.sprite = new video.Sprite(this.rect, video.tilesets[this.stage.name][data.index.y][data.index.x]).attach(this.stage.sprite);
+				this.sprite = new video.Sprite(this.rect, surface).attach();
+				if (this.front) {
+					this.sprite.depth = 2;
+				}
+			}
+		},
+		bump: function(){
+			if (!this.bumping) {
+				this.velocity.y = -this.bumpHeight;
+				this.bumping = true;
+				this.animation = null;
+				this.sprite.surface = video.tilesets[this.stage.name][this.index.y][this.index.x+3];
 			}
 		},
 		update: function(){
@@ -147,6 +208,16 @@ define(["./video", "./geometry"], function(video, geometry){
 					var y = this.index.y + phase[1];
 					this.sprite.surface = video.tilesets[this.stage.name][y][x];
 					this.animationTimer = phase[2];
+				}
+			}
+			if (this.bumping) {
+				if (this.rect.pos.y > this.pos.y * config.tileSize) {
+					this.rect.pos.y = this.pos.y * config.tileSize;
+					this.bumping = false;
+					this.velocity.y = 0;
+				} else {
+					this.velocity.y += this.gravity;
+					this.rect.pos.add(this.velocity);
 				}
 			}
 		}

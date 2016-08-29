@@ -1,13 +1,19 @@
+var modules = ["geometry", "audio", "video", "game", "ui", "input"];
 var imports = (function(){
 	var package = "snakeman",
 	    imports = [];
-	["geometry", "audio", "video", "game", "ui"].some(function(module){
+	modules.some(function(module){
 		imports.push(package + "/" + module);
 	});
-	return imports
+	return imports;
 })();
 
-define(imports, function(geometry, audio, video, game, ui) {
+define(imports, function() {
+	var args = [].slice.call(arguments);
+
+	args.some(function(module, index){
+		this[modules[index]] = args[index];
+	}, this);
 
 	var snakeman = this;
 	var config = {
@@ -48,7 +54,8 @@ define(imports, function(geometry, audio, video, game, ui) {
 			}
 		], function(){
 			game.init(config);
-			config.init.call({}, geometry, audio, video, game, ui)
+			input.mouse.init();
+			config.init.apply({}, args);
 			loop();
 		});
 	}
@@ -56,7 +63,6 @@ define(imports, function(geometry, audio, video, game, ui) {
 	function loop(){
 		game.update();
 		video.update();
-		// throw new Error("Debug mode!");
 		requestAnimationFrame(loop);
 	}
 

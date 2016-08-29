@@ -2,11 +2,11 @@
 // Might fix this if I change my mind.
 
 define(function(){
-	var subject = "history"
+	var topic = "history"
 	return {
 		init:       function(geometry, audio, video, game, ui){ // Custom function to call after project init
-			new ui.Text(new geometry.Vector(24, 16), "SUBJECT").attach();
-			new ui.Text(new geometry.Vector(24, 24), subject).attach();
+			new ui.Text(new geometry.Vector(24, 16), "topic").attach();
+			new ui.Text(new geometry.Vector(24, 24), topic).attach();
 		},
 		resolution: {           // Project screen resolution; note that the properties and [x] and [y], not [width] and [height]
 			x: 512,             // - width

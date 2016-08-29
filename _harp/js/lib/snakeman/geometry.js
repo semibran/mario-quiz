@@ -81,8 +81,21 @@ define(function(){
 			y = o.y;
 			return this.x * x + this.y * y;
 		},
+		set : function(x, y){
+			this.x = x;
+			this.y = y;
+			return this;
+		},
+		scale: function(scalar) {
+			this.x *= scalar;
+			this.y *= scalar;
+			return this;
+		},
 		scaled: function(scalar) {
 			return new Vector(this.x * scalar, this.y * scalar);
+		},
+		string: function(){
+			return this.x+", "+this.y;
 		}
 	}
 
@@ -121,10 +134,10 @@ define(function(){
 			},
 			"right": {
 				get: function(){
-					return this.pos.x + this.size.width;
+					return this.pos.x + this.size.x;
 				},
 				set: function(value){
-					this.pos.x = value - this.size.width;
+					this.pos.x = value - this.size.x;
 				}
 			},
 			"top": {
@@ -137,10 +150,10 @@ define(function(){
 			},
 			"bottom": {
 				get: function(){
-					return this.pos.y + this.size.height;
+					return this.pos.y + this.size.y;
 				},
 				set: function(value){
-					this.pos.y = value - this.size.height;
+					this.pos.y = value - this.size.y;
 				}
 			},
 			"x": {
@@ -199,6 +212,9 @@ define(function(){
 			} else {
 				return false;
 			}
+		},
+		string: function(){
+			return this.left+" -> "+this.right+", "+this.top+" -> "+this.bottom;
 		}
 	};
 

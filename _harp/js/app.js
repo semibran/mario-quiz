@@ -1,5 +1,3 @@
-console.log("salut, mah niggas. dabs and kisses from the one and only conor \"harambe\" mcgregor himself");
-
 requirejs.config({
 	baseUrl:  "js/lib",
 	paths:    {
