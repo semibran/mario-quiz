@@ -43,7 +43,7 @@ define(imports, function() {
 
 		video.load([
 			{
-				src:      "./js/app/ui/text.PNG",
+				src:      "./js/app/ui/text.png",
 				id:       "text",
 				tileSize: 8
 			},

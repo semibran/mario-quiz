@@ -123,6 +123,28 @@ define(["./geometry"], function(geometry){
 			var tileSize = item.tileSize;
 			var image = new Image();
 			image.src = src;
+			image.onerror = function(){
+				if (recursive) {
+					var i = root[index], s = i.src.length, ext, src;
+					while (s > 0) {
+						s --;
+						if (i.src[s] === "." || i.src[s] === "/")
+							break;
+						ext += i.src[s];
+					}
+					if(ext === ext.toUpperCase())
+						throw new Error("Image load failed!");
+					else
+						src = i.src.replace(ext, ext.toUpperCase());
+					loadImage({
+						src:      src,
+						id:       i.id,
+						tileSize: i.tileSize
+					}, true);
+				} else {
+					throw new Error("Image load failed!");
+				}
+			}
 			image.onload = function(){
 				var x = 0, y = 0, i, j, imageData, surface;
 				images[id] = image;
@@ -139,7 +161,7 @@ define(["./geometry"], function(geometry){
 				}
 				if (recursive && index < root.length - 1) {
 					index ++;
-					loadImage(root[index], true, callback, root, index);
+					loadImage(root[index], true);
 				} else {
 					callback.call(this);
 				}
