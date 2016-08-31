@@ -23,6 +23,7 @@ define(["./geometry"], function(geometry){
 	    colors = {
 	    	magenta: new Color(255,   0, 255),
 	    	red:     new Color(255,   0,   0),
+	    	blue:    new Color(  0,   0, 255),
 	    	white:   new Color(255, 255, 255),
 	    	black:   new Color(  0,   0,   0)
 	    },
@@ -33,11 +34,14 @@ define(["./geometry"], function(geometry){
 		canvases:      ["buffer", "background", "foreground"],
 		offset:        new geometry.Vector(0, -8),
 		size:          new geometry.Vector(0,  0),
+		rect:          null,
 		color:         colors.black,
 		children:      [],
 		init:          function(size){
 			this.size.x = size.x;
 			this.size.y = size.y + config.tileSize;
+
+			this.rect = new geometry.Rect(new geometry.Vector(0, 0), size);
 
 			this.foreground = new Surface(size).attach("fg");
 			this.background = new Surface(size).attach("bg");
@@ -59,7 +63,7 @@ define(["./geometry"], function(geometry){
 
 			// Draw image if this is not the display and the visible flag is set
 			if (this instanceof Sprite && this.visible) {
-				pos = this.rect.pos.added(display.offset);
+				pos = this.rect.pos.added(offset);
 				surface.blit(this.surface, pos);
 			}
 
@@ -88,7 +92,7 @@ define(["./geometry"], function(geometry){
 
 			// Iterate over and draw children
 			this.children.some(function(child){
-				p = null;
+				p = this.offset || null;
 				if (this.surface) {
 					s = this.surface;
 				} else {
@@ -172,7 +176,7 @@ define(["./geometry"], function(geometry){
 				parent.children.push(this)
 			return this;
 		},
-		remove: function(parent) {
+		detach: function(parent) {
 			parent = parent || display;
 			var index = parent.children.indexOf(this);
 			if (index != -1)
@@ -182,23 +186,47 @@ define(["./geometry"], function(geometry){
 	};
 
 	function Surface(size){
-		this.size = size;
+		this._size = size;
 		this.canvas = document.createElement("canvas");
-		this.canvas.width = size.x;
-		this.canvas.height = size.y;
+		this.canvas.width = this._size.x;
+		this.canvas.height = this._size.y;
 
 		this.ctx = this.canvas.getContext("2d");
 		this.ctx.webkitImageSmoothingEnabled = false;
 		this.ctx.mozImageSmoothingEnabled = false;
 		this.ctx.imageSmoothingEnabled = false;
+
+		var property, obj;
+
+		for (property in this.properties) {
+			obj = this.properties[property];
+			Object.defineProperty(this, property, obj);
+		}
 	}
 
 	Surface.prototype = {
+		properties: {
+			"size": {
+				get: function(){
+					return this._size;
+				},
+				set: function(value){
+					this._size.set(value);
+					this.canvas.width = Math.floor(this._size.x);
+					this.canvas.height = Math.floor(this._size.y);
+				}
+			}
+		},
 		clear: function(){
 			this.ctx.clearRect(0, 0, this.size.x, this.size.y);
 		},
+		clone: function(){
+			var clone = new Surface(this.size);
+			clone.blit(this, 0, 0);
+			return clone;
+		},
 		fill: function(color){
-			this.fillStyle = color.rgb();
+			this.ctx.fillStyle = color.rgb();
 			this.ctx.fillRect(0, 0, this.size.x, this.size.y);
 		},
 		blit: function(other, offset){
@@ -217,6 +245,7 @@ define(["./geometry"], function(geometry){
 		init: init,
 		load: load,
 		update: update,
+		colors: colors,
 		tilesets: tilesets,
 		images: images,
 		display: display,

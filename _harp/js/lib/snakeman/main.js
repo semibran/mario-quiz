@@ -43,9 +43,14 @@ define(imports, function() {
 
 		video.load([
 			{
-				src:      "./js/lib/snakeman/text.PNG",
+				src:      "./js/app/ui/text.PNG",
 				id:       "text",
 				tileSize: 8
+			},
+			{
+				src:      "./js/app/ui/box.png",
+				id:       "box",
+				tileSize: 16
 			},
 			{
 				src:      "./js/app/stage/smb/smb.png",
@@ -54,6 +59,7 @@ define(imports, function() {
 			}
 		], function(){
 			game.init(config);
+			ui.init(config);
 			input.mouse.init();
 			config.init.apply({}, args);
 			loop();
@@ -62,7 +68,9 @@ define(imports, function() {
 
 	function loop(){
 		game.update();
+		ui.update();
 		video.update();
+		// setTimeout(loop, 1000/10);
 		requestAnimationFrame(loop);
 	}
 

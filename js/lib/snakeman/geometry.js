@@ -81,10 +81,30 @@ define(function(){
 			y = o.y;
 			return this.x * x + this.y * y;
 		},
+		clone: function() {
+			return new Vector(this.x, this.y);
+		},
 		set : function(x, y){
-			this.x = x;
-			this.y = y;
+			o = Vector.resolve(x, y);
+			this.x = o.x;
+			this.y = o.y;
 			return this;
+		},
+		floor : function() {
+			this.x = Math.floor(this.x);
+			this.y = Math.floor(this.y);
+			return this;
+		},
+		floored : function() {
+			return new Vector(Math.floor(this.x), Math.floor(this.y));
+		},
+		round : function() {
+			this.x = Math.round(this.x);
+			this.y = Math.round(this.y);
+			return this;
+		},
+		rounded : function() {
+			return new Vector(Math.round(this.x), Math.round(this.y));
 		},
 		scale: function(scalar) {
 			this.x *= scalar;
@@ -177,7 +197,7 @@ define(function(){
 					return this.size.x;
 				},
 				set: function(value){
-					this.size.width = value;
+					this.size.x = value;
 				}
 			},
 			"height": {
@@ -185,7 +205,16 @@ define(function(){
 					return this.size.y;
 				},
 				set: function(value){
-					this.size.height = value;
+					this.size.y = value;
+				}
+			},
+			"center": {
+				get: function(){
+					return new geometry.Vector(this.pos.x + this.size.x / 2, this.pos.y + this.size.y / 2);
+				},
+				set: function(value){
+					this.pos.x = value.x - this.size.x / 2;
+					this.pos.y = value.y - this.size.y / 2;
 				}
 			}
 		},
@@ -195,7 +224,23 @@ define(function(){
 			y = o.y;
 			return new Rect(this.pos.x + x, this.pos.y + y, this.size.x, this.size.y);
 		},
-		intersects: function(other){
+		clone:      function() {
+			return new Rect(this.pos.x, this.pos.y, this.size.x, this.size.y);
+		},
+		set:        function(x, y, width, height) {
+			if (x instanceof Rect) {
+				this.pos.x  = x.pos.x;
+				this.pos.y  = x.pos.y;
+				this.size.x = x.size.x;
+				this.size.y = x.size.y;
+				return;
+			}
+			this.pos.x = x;
+			this.pos.y = y;
+			this.size.x = width;
+			this.size.y = height;
+		},
+		intersects: function(other) {
 			if (other instanceof Vector) {
 				return this.left < other.x && this.right > other.x && this.top < other.y && this.bottom > other.y;
 			} else if (other instanceof Rect) {
@@ -204,7 +249,7 @@ define(function(){
 				return false;
 			}
 		},
-		contains: function(other){
+		contains: function(other) {
 			if (other instanceof Vector) {
 				return other.x > this.left && other.x < this.right && other.y > this.top && other.y < this.bottom;
 			} else if (other instanceof Rect) {

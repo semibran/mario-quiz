@@ -1,4 +1,4 @@
-define(["./video", "./geometry", "./input"], function(video, geometry, input){
+define(["./video", "./geometry", "./input", "./ui"], function(video, geometry, input, ui){
 
 	var config;
 	var stage;
@@ -6,31 +6,37 @@ define(["./video", "./geometry", "./input"], function(video, geometry, input){
 	function init(data){
 		config = data;
 		stage = new Stage(data.stage);
-		input.mouse.listen("click", function(e){
-			var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
-			stage.tilesTyped["?"].some(function(tile){
-				if (tile.rect.contains(pos) && tile.animation) {
-					tile.bump();
-					document.querySelector("html").className = "";
-				}
-			});
-		});
+		// console.log(stage.tilesTyped["?"]);
+		// if (stage.tilesTyped["?"]) {
+			
+		// }
+
+
+		// input.mouse.listen("click", function(e){
+		// 	var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
+		// 	stage.tilesTyped["?"].some(function(tile){
+		// 		if (tile.rect.contains(pos) && tile.animation) {
+		// 			tile.bump();
+		// 			document.querySelector("html").className = "";
+		// 		}
+		// 	});
+		// });
+		// input.mouse.listen("move", function(e){
+		// 	var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
+		// 	if(stage.tilesTyped["?"]){
+		// 		var state = "";
+		// 		stage.tilesTyped["?"].some(function(tile){
+		// 			if (tile.rect.contains(pos) && tile.animation)
+		// 				state = "pointer";
+		// 		});
+		// 		document.querySelector("html").className = state;
+		// 	}
+		// });
 	}
 
 	function update(){
 		if (stage)
 			stage.update();
-		input.mouse.listen("move", function(e){
-			var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
-			if(stage.tilesTyped["?"]){
-				var state = "";
-				stage.tilesTyped["?"].some(function(tile){
-					if (tile.rect.contains(pos) && tile.animation)
-						state = "pointer";
-				});
-				document.querySelector("html").className = state;
-			}
-		});
 	}
 
 	function Stage(name){
@@ -119,6 +125,13 @@ define(["./video", "./geometry", "./input"], function(video, geometry, input){
 					}
 				}
 			}
+			stage.tilesTyped["?"].some(function(tile){
+				input.mouse.mark(tile.rect, function(){
+					if (!ui.shadowed) {
+						tile.bump();
+					}
+				});
+			});
 		});
 	}
 
