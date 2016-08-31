@@ -1,3 +1,6 @@
 define({
-	hitbox_size: {width: 12, height: 16}
-}
+	hitboxSize: {
+		width: 8,
+		height: 16
+	}
+});

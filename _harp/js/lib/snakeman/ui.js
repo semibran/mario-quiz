@@ -155,9 +155,11 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 			if (index != -1) {
 				x = index % 10;
 				y = (index - x) / 10 + (this.shadow ? 5 : 0);
-				letters.push({
+				if (!letters[ty]) letters[ty] = [];
+				letters[ty].push({
+					char: c,
 					surface: video.tilesets.text[y][x],
-					pos: new geometry.Vector(tx * s, ty * (s + 4))
+					pos: tx
 				});
 			}		
 			if (++ tx >= mw) {
@@ -168,8 +170,19 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 
 		this.surface.canvas.height = this.surface.size.y = (ty + 1) * (s + 4);
 
-		letters.some(function(letter){
-			this.surface.blit(letter.surface, letter.pos);
+		var prev, surf, x, alignment = "center";
+		letters.some(function(line, index){
+			surf = new video.Surface(new geometry.Vector(line.length * s, s));
+			line.some(function(letter){
+				surf.blit(letter.surface, new geometry.Vector(letter.pos * s, 0));
+			});
+			if (alignment === "left") // Simple enough
+				x = 0;
+			else if (alignment === "center") // Works like a charm!
+				x = this.surface.size.x / 2 - surf.size.x / 2;
+			else if (alignment === "right") // PROBLEM: Needs to remove extra right-side spaces?
+				x = this.surface.size.x - surf.size.x;
+			this.surface.blit(surf, new geometry.Vector(x, index * (s + 4)));
 		}, this);
 
 		children.push(this);
@@ -211,38 +224,6 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		children.push(this);
 
 		data.shadowed = true;
-
-		rows = this.size.y;
-		cols = this.size.x;
-
-		for (y = 0; y < rows; y ++) {
-			for (x = 0; x < cols; x ++) {
-				c = false;
-				s = this.cache.C;
-				if (!x && !y) {
-					s = this.cache.UL;
-					c = true;
-				} else if (x == cols-1 && !y) {
-					s = this.cache.UR;
-					c = true;
-				} else if (!x && y == rows-1) {
-					s = this.cache.DL;
-					c = true;
-				} else if (x == cols-1 && y == rows-1) {
-					s = this.cache.DR;
-					c = true;
-				} else if (!x) {
-					s = this.cache.L;
-				} else if (!y) {
-					s = this.cache.U;
-				} else if (x == cols-1) {
-					s = this.cache.R;
-				} else if (y == rows-1) {
-					s = this.cache.D;
-				}
-				this.surface.blit(s, x * t, y * t);
-			}
-		}
 
 		c = video.display.rect.center;
 		s = new geometry.Vector(config.tileSize, config.tileSize);

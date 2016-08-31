@@ -53,8 +53,13 @@ define(imports, function() {
 				tileSize: 16
 			},
 			{
-				src:      "./js/app/stage/smb/smb.png",
-				id:       "smb",
+				src:      "./js/app/char/"+config.char+"/"+config.char+".png",
+				id:       config.char,
+				tileSize: 16
+			},
+			{
+				src:      "./js/app/stage/"+config.stage+"/"+config.stage+".png",
+				id:       config.stage,
 				tileSize: 16
 			}
 		], function(){
