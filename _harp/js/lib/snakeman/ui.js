@@ -18,12 +18,10 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 			D:  s[2][1],
 			DR: s[2][2]
 		};
-		box = new Box(new geometry.Rect(40, 32, 432, 192)).attach();
-		new Text(new geometry.Vector(16, 16),                        "AND HIS NAME CONVENIENTLY HAPPENS TO BE JOHN CENA!", 1).attach(box);
-		new Text(new geometry.Vector(16, 32),                        "(why am I not surprised.) -Stockton", 1).attach(box);
-		new Text(new geometry.Rect(16, 48, 432-32, 24),              "Now, this piece of text should be spread across multiple lines, don't you think? (Good thing it actually works!)", 1).attach(box);
-		box.disappear();
-		box.appear(true);
+	}
+
+	function box(text) {
+		box = new Box().attach().text(text).disappear().appear(true);
 		input.mouse.mark(box.rect, function(){
 			box.disappear(true);
 			input.mouse.unmark(box.rect);
@@ -132,20 +130,27 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		this.content = content;
 
 		var t = this.content, word, letters = [];
-		t.split("").some(function(c, i) {
+		for (var i = 0; i < t.length; i ++) {
+			while (tx == 0 && t[i] === " ") i ++;
+			var c = t[i];
 			if (!word || c === " ") {
 				word = "";
 				var j = i;
 				while (j < t.length) {
 					if (t[j] !== " ")
 						word += t[j];
-					else if (word.length > 0)
+					else
 						break;
 					j ++;
 				}
 				wx = tx;
 			}
-			
+	
+			if (wx + word.length > mw) {
+				tx = wx = 0;
+				ty ++;
+			}
+
 			index = this.sequence.indexOf(c.toUpperCase());
 			if (index != -1) {
 				x = index % 10;
@@ -153,15 +158,13 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 				letters.push({
 					surface: video.tilesets.text[y][x],
 					pos: new geometry.Vector(tx * s, ty * (s + 4))
-				})
-			}
-			tx ++;
-			if (tx >= mw || wx + word.length > mw) {
-				tx = 0;
+				});
+			}		
+			if (++ tx >= mw) {
+				tx = wx = 0;
 				ty ++;
-				wx = 0;
-			}
-		}, this);
+			}	
+		}
 
 		this.surface.canvas.height = this.surface.size.y = (ty + 1) * (s + 4);
 
@@ -177,14 +180,14 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		sequence:  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!?-'\"<>() ",
 		attach:    function(parent) {
 			if (parent instanceof Box) {
-				parent = box.sprite;
+				parent = parent.sprite;
 			}
 			this.sprite.attach(parent);
 			return this;
 		},
 		detach:    function(parent) {
 			if (parent instanceof Box) {
-				parent = box.sprite;
+				parent = parent.sprite;
 			}
 			this.sprite.detach(parent);
 			return this;
@@ -196,13 +199,15 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 
 		t = config.tileSize;
 
+		rect = new geometry.Rect(40, 32, 432, 192);
+
 		this.size = new geometry.Vector(rect.width / t, rect.height / t);
 		this.rect = rect;
 		this.surface = new video.Surface(this.rect.size.clone());
 		this.sprite = new video.Sprite(this.rect, this.surface);
 		this.sprite.depth = 4;
 		this.animation = null;
-		this.dynamic = false;
+		this.textboxes = [];
 		children.push(this);
 
 		data.shadowed = true;
@@ -290,6 +295,22 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 				}
 			}
 		},
+		text: function(content) {
+			if (Object.prototype.toString.call(content) === "[object Array]") {
+				content.some(function(entry){
+					this.text(entry);
+				}, this);
+			} else {
+				var x, y, rect;
+				x = config.tileSize;
+				y = config.tileSize;
+				this.textboxes.some(function(text){ y += text.rect.height; y += 8; });
+
+				rect = new geometry.Rect(x, y, this.rect.width - config.tileSize * 2, 0);
+				this.textboxes.push(new Text(rect, content, true).attach(this));
+			}
+			return this;
+		},
 		attach: function(parent) {
 			this.sprite.attach(parent);
 			return this;
@@ -306,6 +327,7 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 					this.sprite.detach();
 				}).init(this);
 			}
+			return this;
 		},
 		appear: function(animated) {
 			data.shadowed = true;
@@ -318,6 +340,7 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 					this.childState(true);
 				}).init(this);
 			}
+			return this;
 		}
 	};
 
@@ -326,6 +349,7 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		update: update,
 
 		shadowed: false,
+		box: box,
 
 		Text: Text,
 		Box: Box

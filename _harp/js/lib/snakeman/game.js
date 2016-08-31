@@ -125,10 +125,13 @@ define(["./video", "./geometry", "./input", "./ui"], function(video, geometry, i
 					}
 				}
 			}
-			stage.tilesTyped["?"].some(function(tile){
+			stage.tilesTyped["?"].some(function(tile, index){
 				input.mouse.mark(tile.rect, function(){
 					if (!ui.shadowed) {
-						tile.bump();
+						tile.bump(function(){
+							ui.box(config.user.questions[index]);
+						});
+						input.mouse.unmark(tile.rect);
 					}
 				});
 			});
@@ -176,6 +179,7 @@ define(["./video", "./geometry", "./input", "./ui"], function(video, geometry, i
 		this.animationIndex = 0;
 		this.bumping = false;
 		this.bumpHeight = 2;
+		this.bumpCallback = null
 		this.gravity = 0.25;
 		this.velocity = new geometry.Vector(0, 0);
 		this.index = null;
@@ -198,12 +202,13 @@ define(["./video", "./geometry", "./input", "./ui"], function(video, geometry, i
 				}
 			}
 		},
-		bump: function(){
+		bump: function(callback){
 			if (!this.bumping) {
 				this.velocity.y = -this.bumpHeight;
 				this.bumping = true;
 				this.animation = null;
 				this.sprite.surface = video.tilesets[this.stage.name][this.index.y][this.index.x+3];
+				this.bumpCallback = callback || function(){};
 			}
 		},
 		update: function(){
@@ -228,6 +233,7 @@ define(["./video", "./geometry", "./input", "./ui"], function(video, geometry, i
 					this.rect.pos.y = this.pos.y * config.tileSize;
 					this.bumping = false;
 					this.velocity.y = 0;
+					this.bumpCallback.call(this);
 				} else {
 					this.velocity.y += this.gravity;
 					this.rect.pos.add(this.velocity);

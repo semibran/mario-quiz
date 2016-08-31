@@ -7,31 +7,39 @@ define(["./geometry", "./video"], function(geometry){
 		  "click": []
 	    };
 	function move(e) {
-		var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
-		document.body.style.cursor = "";
-		listeners.move.some(function(callback){
-			callback(pos);
-		})
+		if (e.target === video.display.foreground.canvas) {
+			var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
+			document.body.style.cursor = "";
+			listeners.move.some(function(callback){
+				callback(pos);
+			});
+		}
 	}
 	function down(e) {
-		var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
-		mouse.down = true;
-		listeners.down.some(function(callback){
-			callback(pos);
-		})
+		if (e.target === video.display.foreground.canvas) {
+			var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
+			mouse.down = true;
+			listeners.down.some(function(callback){
+				callback(pos);
+			});
+		}
 	}
 	function up(e) {
-		var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
-		mouse.down = false;
-		listeners.up.some(function(callback){
-			callback(pos);
-		})
+		if (e.target === video.display.foreground.canvas) {
+			var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
+			mouse.down = false;
+			listeners.up.some(function(callback){
+				callback(pos);
+			});
+		}
 	}
 	function click(e){
-		var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
-		listeners.click.some(function(callback){
-			callback(pos);
-		})
+		if (e.target === video.display.foreground.canvas) {
+			var pos = new geometry.Vector(e.offsetX, e.offsetY).subtracted(video.display.offset);
+			listeners.click.some(function(callback){
+				callback(pos);
+			});
+		}
 	}
 	var mouse = {
 		pos: new geometry.Vector(0, 0),

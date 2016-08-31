@@ -29,7 +29,7 @@ define(imports, function() {
 	};
 
 	function init(data){
-		var properties = ["init", "tileSize", "resolution", "path", "stage", "char"] // Properties to copy
+		var properties = ["init", "tileSize", "resolution", "path", "stage", "char", "user"] // Properties to copy
 
 		for (prop in data) {
 			if (properties.indexOf(prop) !== -1) {
