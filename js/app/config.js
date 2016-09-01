@@ -6,7 +6,9 @@ define(function(){
 		init:       function(geometry, audio, video, game, ui){ // Custom function to call after project init
 			new ui.Text(new geometry.Vector(24, 16), "Topic").attach();
 			new ui.Text(new geometry.Vector(24, 24), data.user.topic).attach();
-			ui.box(data.user.greeting);
+			ui.box(data.user.greeting, true, function(){
+				game.spawn();
+			});
 		},
 		resolution: {            // Project screen resolution; note that the properties and [x] and [y], not [width] and [height]
 			x: 512,              // - width
@@ -19,11 +21,10 @@ define(function(){
 		user:       {            // User defined constants
 			topic:     "history",
 			greeting:      [
-				"Welcome to Mario Quiz!",
-				"The current world contains 15 Question Blocks, each with a value corresponding to its height. The bottom row is worth 100 points, the middle is worth 300, and the top is worth 500.",
-				"I haven't added Mario, a functional scoring system, power-ups or sound effects, but rest assured, I'll get to those features soon!",
-				"Until then, enjoy clicking on boxes with lit animations.",
-				"(Click to close dialog box)"
+				"Welcome to Mario Quiz v0.1!",
+				"In this version, I mainly added a fancy loading screen and authentic bleeps and bloops from the original games. Next up is probably more interface updates.",
+				"If you're not sure what to do here, know that beyond this screen lies a world full of 15 question blocks with customizable contents. Try clicking on a box to view what's inside!",
+				"(...Oh yeah, click on this box to close it.)"
 				// "Contrary to popular belief, \"The Notorious\" Conorambe McGregorilla isn't just any other young silver-backed gorilla. He's dressed like El Chapo in his prime with anacondas at his feet!",
 				// "To top it all off, he was even fatally submitted via triangle choke during one fight by the legendary Nate \"Manchild Weed Philosopher\" Diaz from Stockton. (surprise!)",
 				// "Remember kids, if at first you don't succeed, just give up and smoke some weed.",

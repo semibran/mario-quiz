@@ -120,41 +120,19 @@ define(["./geometry"], function(geometry){
 		function loadImage(item, recursive){
 			var src = item.src;
 			var id = item.id;
-			var tileSize = item.tileSize;
+			var tile = item.tile;
 			var image = new Image();
 			image.src = src;
-			// image.onerror = function(){
-			// 	if (recursive) {
-			// 		var i = root[index], s = i.src.length, ext, src;
-			// 		while (s > 0) {
-			// 			s --;
-			// 			if (i.src[s] === "." || i.src[s] === "/")
-			// 				break;
-			// 			ext += i.src[s];
-			// 		}
-			// 		if(ext === ext.toUpperCase())
-			// 			throw new Error("Image load failed!");
-			// 		else
-			// 			src = i.src.replace(ext, ext.toUpperCase());
-			// 		loadImage({
-			// 			src:      src,
-			// 			id:       i.id,
-			// 			tileSize: i.tileSize
-			// 		}, true);
-			// 	} else {
-			// 		throw new Error("Image load failed!");
-			// 	}
-			// }
 			image.onload = function(){
 				var x = 0, y = 0, i, j, imageData, surface;
 				images[id] = image;
-				if (tileSize) {
+				if (tile) {
 					tilesets[id] = [];
-					for (i = 0; i < image.height / tileSize; i ++) {
+					for (i = 0; i < image.height / tile.x; i ++) {
 						tilesets[id].push([]);
-						for (j = 0; j < image.width / tileSize; j ++) {
-							surface = new Surface(new geometry.Vector(tileSize, tileSize));
-							surface.ctx.drawImage(image, -j * tileSize, -i * tileSize);
+						for (j = 0; j < image.width / tile.y; j ++) {
+							surface = new Surface(new geometry.Vector(tile.x, tile.y));
+							surface.ctx.drawImage(image, -j * tile.x, -i * tile.y);
 							tilesets[id][i].push(surface);
 						}
 					}

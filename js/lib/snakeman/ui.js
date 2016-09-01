@@ -4,28 +4,46 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 	var children = [];
 	var animations = [];
 
-	function init(data) {
+	function init(data, callback) {
 		config = data;
-		var s = video.tilesets.box;
-		Box.prototype.cache = {
-			UL: s[0][0],
-			U:  s[0][1],
-			UR: s[0][2],
-			L:  s[1][0],
-			C:  s[1][1],
-			R:  s[1][2],
-			DL: s[2][0],
-			D:  s[2][1],
-			DR: s[2][2]
-		};
+		video.load([
+			{
+				src:      "./js/app/ui/text.png",
+				id:       "text",
+				tile:     new geometry.Vector(8, 8)
+			},
+			{
+				src:      "./js/app/ui/box.png",
+				id:       "box",
+				tile:     new geometry.Vector(16, 16)
+			}
+		], function(){
+			var s = video.tilesets.box;
+			Box.prototype.cache = {
+				UL: s[0][0],
+				U:  s[0][1],
+				UR: s[0][2],
+				L:  s[1][0],
+				C:  s[1][1],
+				R:  s[1][2],
+				DL: s[2][0],
+				D:  s[2][1],
+				DR: s[2][2]
+			};
+			exports.initialized = true;
+			callback();
+		});
 	}
 
-	function box(text) {
+	function box(text, prompt, onclose) {
 		box = new Box().attach().text(text).disappear().appear(true);
-		input.mouse.mark(box.rect, function(){
-			box.disappear(true);
-			input.mouse.unmark(box.rect);
-		});
+		if (prompt) {
+			input.mouse.mark(box.rect, function(){
+				box.disappear(true, onclose);
+				input.mouse.unmark(box.rect);
+			});
+		}
+		return box;
 	}
 
 	function update() {
@@ -81,32 +99,7 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 
 			this.item.surface.size = r.size;
 
-			this.item.surface.clear();
-
-			var xf  = this.item.surface.size.x / t,
-			    yf  = this.item.surface.size.y / t,
-			    xfr = Math.round(xf);
-			    yfr = Math.round(yf);
-
-			for (y = 0; y < yfr; y ++) {
-				for (x = 0; x < xfr; x ++) {
-					if (x > 0 && x < xfr-1) {
-						if (y > 0 && y < yfr-1) {
-							this.item.surface.blit(this.item.cache.C, new v(x*t, y*t));
-						}
-						this.item.surface.blit(this.item.cache.U, new v(x*t, 0));
-						this.item.surface.blit(this.item.cache.D, new v(x*t, (yfr-1)*t));
-					}
-				}
-				if (y > 0 && y < yfr-1) {
-					this.item.surface.blit(this.item.cache.L, new v(0, y*t));
-					this.item.surface.blit(this.item.cache.R, new v((xfr-1)*t, y*t));
-				}
-			}
-			this.item.surface.blit(this.item.cache.UL);
-			this.item.surface.blit(this.item.cache.UR, new v((xfr-1)*t, 0));
-			this.item.surface.blit(this.item.cache.DL, new v(0, (yfr-1)*t));
-			this.item.surface.blit(this.item.cache.DR, new v((xfr-1)*t, (yfr-1)*t));
+			this.item.draw();
 		}
 	};
 
@@ -212,7 +205,9 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 
 		t = config.tileSize;
 
-		rect = new geometry.Rect(40, 32, 432, 192);
+		x = 2.5;
+		y = 2;
+		rect = new geometry.Rect(x * t, y * t, (config.resolution.x / t - x * 2)*t, (config.resolution.y / t - y * 2)*t);
 
 		this.size = new geometry.Vector(rect.width / t, rect.height / t);
 		this.rect = rect;
@@ -223,10 +218,12 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		this.textboxes = [];
 		children.push(this);
 
-		data.shadowed = true;
+		exports.shadowed = true;
 
 		c = video.display.rect.center;
 		s = new geometry.Vector(config.tileSize, config.tileSize);
+
+		this.draw();
 
 		this.min = {
 			size: s,
@@ -246,35 +243,36 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 			this.sprite.children.some(function(child){ child.visible = state; });
 		},
 		draw: function(){
-			var x, y, c, s;
-			for (y = 0; y < rows; y ++) {
-				for (x = 0; x < cols; x ++) {
-					c = false;
-					s = this.cache.C;
-					if (!x && !y) {
-						s = this.cache.UL;
-						c = true;
-					} else if (x == cols-1 && !y) {
-						s = this.cache.UR;
-						c = true;
-					} else if (!x && y == rows-1) {
-						s = this.cache.DL;
-						c = true;
-					} else if (x == cols-1 && y == rows-1) {
-						s = this.cache.DR;
-						c = true;
-					} else if (!x) {
-						s = this.cache.L;
-					} else if (!y) {
-						s = this.cache.U;
-					} else if (x == cols-1) {
-						s = this.cache.R;
-					} else if (y == rows-1) {
-						s = this.cache.D;
+			var t = config.tileSize,
+			    xf  = this.surface.size.x,
+			    yf  = this.surface.size.y,
+			    xfr = Math.ceil(xf/t),
+			    yfr = Math.ceil(yf/t),
+			    c = this.cache,
+			    s = this.surface,
+			    v = geometry.Vector;
+
+			s.clear();
+
+			for (y = 0; y < yfr; y ++) {
+				for (x = 0; x < xfr; x ++) {
+					if (x > 0 && x < xfr-1) {
+						if (y > 0 && y < yfr-1) {
+							s.blit(c.C, new v(x*t, y*t));
+						}
+						s.blit(c.U, new v(x*t, 0));
+						s.blit(c.D, new v(x*t, yf-t));
 					}
-					this.surface.blit(s, x * t, y * t);
+				}
+				if (y > 0 && y < yfr-1) {
+					s.blit(c.L, new v(0, y*t));
+					s.blit(c.R, new v(xf-t, y*t));
 				}
 			}
+			s.blit(c.UL);
+			s.blit(c.UR, new v(xf-t, 0));
+			s.blit(c.DL, new v(0, yf-t));
+			s.blit(c.DR, new v(xf-t, yf-t));
 		},
 		text: function(content) {
 			if (Object.prototype.toString.call(content) === "[object Array]") {
@@ -283,41 +281,58 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 				}, this);
 			} else {
 				var x, y, rect;
-				x = config.tileSize;
+				x = config.tileSize * 2;
 				y = config.tileSize;
-				this.textboxes.some(function(text){ y += text.rect.height; y += 8; });
-
-				rect = new geometry.Rect(x, y, this.rect.width - config.tileSize * 2, 0);
+				this.textboxes.some(function(text){ y += text.rect.height + 8; });
+				rect = new geometry.Rect(x, y, this.rect.width - config.tileSize * 4, 0);
 				this.textboxes.push(new Text(rect, content, true).attach(this));
 			}
+			y = config.tileSize * 2 - 12;
+			this.textboxes.some(function(text){ y += text.rect.height + 8; });
+			this.resize(null, y);
 			return this;
+		},
+		resize: function(x, y){
+			this.rect.height  = y;
+			this.rect.y       = video.display.rect.center.y - y / 2;
+			this.size.y       = y;
+			this.surface.size = new geometry.Vector(this.rect.width, y);
+			this.max.rect     = this.rect.clone();
+			this.max.size     = this.rect.size;
+			this.draw();
 		},
 		attach: function(parent) {
 			this.sprite.attach(parent);
 			return this;
 		},
-		disappear: function(animated) {
+		disappear: function(animated, callback) {
 			this.childState(false);
 			if (!animated) {
+				this.surface.clear();
 				this.sprite.visible = false;
-				data.shadowed = false;
+				exports.shadowed = false;
 			} else {
 				this.sprite.children.some(function(child){ child.detach(this.sprite); });
 				this.animation = new Animation(this.max.rect, this.min.rect, function(){
-					data.shadowed = false;
+					exports.shadowed = false;
 					this.sprite.detach();
+					if (callback)
+						callback();
 				}).init(this);
 			}
 			return this;
 		},
-		appear: function(animated) {
-			data.shadowed = true;
+		appear: function(animated, callback) {
+			exports.shadowed = true;
 			this.sprite.visible = true;
 			if (!animated) {
 				this.childState(true);
 			} else {
+				this.surface.clear();
 				this.childState(false);
 				this.animation = new Animation(this.min.rect, this.max.rect, function(){
+					if (callback)
+						callback();
 					this.childState(true);
 				}).init(this);
 			}
@@ -325,16 +340,15 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		}
 	};
 
-	var data = {
+	var exports = {
+		shadowed: false,
+		initialized: false,
 		init: init,
 		update: update,
-
-		shadowed: false,
-		box: box,
-
 		Text: Text,
-		Box: Box
+		Box: Box,
+		box: box
 	};
 
-	return data;
+	return exports;
 })

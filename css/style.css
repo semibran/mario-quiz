@@ -1,1 +1,38 @@
-html.pointer{cursor:pointer}body{margin:0;background:black}#fg{z-index:1}#bg{z-index:0}h1,h3{font-family:Arial}canvas{position:fixed;left:0;top:0;right:0;bottom:0;margin:auto;image-rendering:optimizeSpeed;image-rendering:-moz-crisp-edges;image-rendering:-webkit-optimize-contrast;image-rendering:-o-crisp-edges;image-rendering:crisp-edges;image-rendering:pixelated;-ms-interpolation-mode:nearest-neighbor}@media (min-width:1024px){canvas{-webkit-transform:scale(2);transform:scale(2)}}
+html.pointer {
+  cursor: pointer; }
+
+body {
+  margin: 0;
+  background: black; }
+
+#fg {
+  z-index: 1; }
+
+#bg {
+  z-index: 0; }
+
+h1, h3 {
+  font-family: Arial; }
+
+canvas {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+  image-rendering: optimizeSpeed;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: -o-crisp-edges;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor; }
+  @media (min-width: 1024px) {
+    canvas {
+      -webkit-transform: scale(2);
+      -moz-transform: scale(2);
+      -ms-transform: scale(2);
+      transform: scale(2); } }
+
+/*# sourceMappingURL=style.css.map */

@@ -1,23 +1,44 @@
-define(["./video", "./geometry", "./input", "./ui"], function(video, geometry, input, ui){
+define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, geometry, input, ui, audio){
 
 	var stage, characters = [], config;
 
-	function init(data){
+	function init(data, callback){
 		config = data;
-		stage = new Stage(data.stage);
+		video.load([
+			{
+				src:      "./js/app/char/"+config.char+"/"+config.char+".png",
+				id:       config.char,
+				tile:     new geometry.Vector(16, 16)
+			},
+			{
+				src:      "./js/app/stage/"+config.stage+"/"+config.stage+".png",
+				id:       config.stage,
+				tile:     new geometry.Vector(16, 16)
+			}
+		], function(){
+			exports.initialized = true;
+			callback();
+		});
+	}
+
+	function start(callback) {
+		stage = new Stage(config.stage, callback);
+	}
+
+	function spawn() {
+		new Character(config.char);
+		audio.play("pipe");
 	}
 
 	function update(){
 		if (stage)
 			stage.update();
-		if (!ui.shadowed && !characters.length)
-			new Character(config.char);
 		characters.some(function(char){
 			char.update();
 		})
 	}
 
-	function Stage(name){
+	function Stage(name, callback){
 		this.name = name;
 		this.tiles = [];
 		this.tilesTyped = {};
@@ -109,13 +130,16 @@ define(["./video", "./geometry", "./input", "./ui"], function(video, geometry, i
 			stage.tilesTyped["?"].some(function(tile, index){
 				input.mouse.mark(tile.rect, function(){
 					if (!ui.shadowed) {
+						audio.play("bump")
 						tile.bump(function(){
-							ui.box(config.user.questions[index]);
+							audio.play("pause");
+							ui.box(config.user.questions[index], true);
 						});
 						input.mouse.unmark(tile.rect);
 					}
 				});
 			});
+			callback();
 		});
 	}
 
@@ -227,7 +251,7 @@ define(["./video", "./geometry", "./input", "./ui"], function(video, geometry, i
 		var t = config.tileSize;
 		this.type = type;
 		this.spawn = new geometry.Vector(stage.config.spawn.x * t, stage.config.spawn.y * t + 1);
-		this.rect = new geometry.Rect(this.spawn.x, this.spawn.y + t, t, t);
+		this.rect = new geometry.Rect(this.spawn.x, this.spawn.y + t * 2, t, t);
 		this.surface = new video.Surface(this.rect.size);
 		this.surface.blit(video.tilesets[type][0][0], 0, 0);
 		this.sprite = new video.Sprite(this.rect, this.surface).attach();
@@ -238,19 +262,23 @@ define(["./video", "./geometry", "./input", "./ui"], function(video, geometry, i
 	Character.prototype = {
 		update: function() {
 			if (this.rect.y > this.spawn.y) {
-				this.rect.y --;
+				this.rect.y -= 0.5;
 			} else {
 				this.sprite.depth = 3;
 			}
 		}
 	};
 
-	return {
+	var exports = {
+		initialized: false,
 		init: init,
+		start: start,
+		spawn: spawn,
 		update: update,
-
 		Stage: Stage,
 		Tile: Tile,
 		Character: Character
 	};
+
+	return exports;
 });

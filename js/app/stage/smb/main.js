@@ -16,7 +16,7 @@ define({
 		solid: "=|#O?+",
 		nudge: "?+",
 		break: "+",
-		front: "=?+",
+		front: "=|?+",
 		animation: {
 			"?": [
 				[0, 0, 20],

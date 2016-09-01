@@ -1,0 +1,36 @@
+html.pointer
+	cursor: pointer
+
+body
+	margin: 0
+	background: black
+
+#fg
+	z-index: 1
+#bg
+	z-index: 0
+
+h1, h3
+	font-family: Arial
+
+canvas
+	position: fixed
+	left: 0
+	top: 0
+	right: 0
+	bottom: 0
+	margin: auto
+	
+	image-rendering: optimizeSpeed              // Older versions of FF
+	image-rendering: -moz-crisp-edges           // FF 6.0+
+	image-rendering: -webkit-optimize-contrast  // Webkit (non standard naming)
+	image-rendering: -o-crisp-edges             // OS X & Windows Opera (12.02+)
+	image-rendering: crisp-edges                // Possible future browsers.
+	image-rendering: pixelated
+	-ms-interpolation-mode: nearest-neighbor    // IE (non standard naming)
+
+	@media (min-width: 1024px)
+		-webkit-transform: scale(2)
+		-moz-transform: scale(2)
+		-ms-transform: scale(2)
+		transform: scale(2)

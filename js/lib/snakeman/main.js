@@ -29,8 +29,9 @@ define(imports, function() {
 	};
 
 	function init(data){
-		var properties = ["init", "tileSize", "resolution", "path", "stage", "char", "user"] // Properties to copy
 
+		// Config setup
+		var properties = ["init", "tileSize", "resolution", "path", "stage", "char", "user"] // Properties to copy
 		for (prop in data) {
 			if (properties.indexOf(prop) !== -1) {
 				config[prop] = data[prop];
@@ -38,37 +39,26 @@ define(imports, function() {
 		}
 
 		video.init(config);
-
-		// throw new Error("Debug mode!");
-
-		video.load([
-			{
-				src:      "./js/app/ui/text.png",
-				id:       "text",
-				tileSize: 8
-			},
-			{
-				src:      "./js/app/ui/box.png",
-				id:       "box",
-				tileSize: 16
-			},
-			{
-				src:      "./js/app/char/"+config.char+"/"+config.char+".png",
-				id:       config.char,
-				tileSize: 16
-			},
-			{
-				src:      "./js/app/stage/"+config.stage+"/"+config.stage+".png",
-				id:       config.stage,
-				tileSize: 16
-			}
-		], function(){
-			game.init(config);
-			ui.init(config);
-			input.mouse.init();
-			config.init.apply({}, args);
+		ui.init(config, function(){
+			var box = ui.box("Now loading...");
 			loop();
+			game.init(config, function(){
+				audio.init(config, function(){
+					input.init();
+					box.disappear(true, function(){
+						ui.box(["Load complete!", "Click this box to start."], true, function(){
+							game.start(function(){
+								config.init.apply({}, args);
+								audio.play("smb");
+							});
+						});
+						audio.play("1up");
+					});
+				});
+			});
 		});
+
+		// });
 	}
 
 	function loop(){

@@ -41,6 +41,9 @@ define(["./geometry", "./video"], function(geometry){
 			});
 		}
 	}
+	function init(){
+		mouse.init();
+	}
 	var mouse = {
 		pos: new geometry.Vector(0, 0),
 		down: false,
@@ -119,6 +122,7 @@ define(["./geometry", "./video"], function(geometry){
 		}
 	};
 	return {
+		init: init,
 		mouse: mouse
 	};
 });
