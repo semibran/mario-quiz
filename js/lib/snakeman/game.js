@@ -11,7 +11,7 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 				tile:     new geometry.Vector(16, 16)
 			},
 			{
-				src:      "./js/app/stage/"+config.stage+"/"+config.stage+".png",
+				src:      "./js/app/stage/"+config.stage+"/tileset-"+config.stage+".png",
 				id:       config.stage,
 				tile:     new geometry.Vector(16, 16)
 			}
@@ -64,7 +64,7 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 			stage.foreground.depth = 2;
 
 			stage.background = new video.Sprite(stage.rect, new video.Surface(stage.sizeScaled)).attach();
-			
+
 			var row, char, i, j, a, attribute, value, pos;
 			for (i = 0; i < data.map.length; i ++) {
 				row = data.map[i];
@@ -130,12 +130,18 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 			stage.tilesTyped["?"].some(function(tile, index){
 				input.mouse.mark(tile.rect, function(){
 					if (!ui.shadowed) {
-						audio.play("bump")
 						tile.bump(function(){
 							audio.play("pause");
-							ui.box(config.user.questions[index], true);
-						});
+							ui.box.prompt(config.user.questions[index]);
+						}, true);
 						input.mouse.unmark(tile.rect);
+					}
+				});
+			});
+			stage.tilesTyped["+"].some(function(tile, index){
+				input.mouse.mark(tile.rect, function(){
+					if (!ui.shadowed) {
+						tile.bump();
 					}
 				});
 			});
@@ -207,12 +213,14 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 				}
 			}
 		},
-		bump: function(callback){
+		bump: function(callback, question){
 			if (!this.bumping) {
+				audio.play("bump");
 				this.velocity.y = -this.bumpHeight;
 				this.bumping = true;
 				this.animation = null;
-				this.sprite.surface = video.tilesets[this.stage.name][this.index.y][this.index.x+3];
+				if (question)
+					this.sprite.surface = video.tilesets[this.stage.name][this.index.y][this.index.x+3];
 				this.bumpCallback = callback || function(){};
 			}
 		},
@@ -251,7 +259,7 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 		var t = config.tileSize;
 		this.type = type;
 		this.spawn = new geometry.Vector(stage.config.spawn.x * t, stage.config.spawn.y * t + 1);
-		this.rect = new geometry.Rect(this.spawn.x, this.spawn.y + t * 2, t, t);
+		this.rect = new geometry.Rect(this.spawn.x, this.spawn.y + t * 1.5, t, t);
 		this.surface = new video.Surface(this.rect.size);
 		this.surface.blit(video.tilesets[type][0][0], 0, 0);
 		this.sprite = new video.Sprite(this.rect, this.surface).attach();

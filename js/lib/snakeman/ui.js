@@ -13,13 +13,13 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 				tile:     new geometry.Vector(8, 8)
 			},
 			{
-				src:      "./js/app/ui/box.png",
+				src:      "./js/app/stage/"+config.stage+"/box-"+config.stage+".png",
 				id:       "box",
 				tile:     new geometry.Vector(16, 16)
 			}
 		], function(){
 			var s = video.tilesets.box;
-			Box.prototype.cache = {
+			box.cache = {
 				UL: s[0][0],
 				U:  s[0][1],
 				UR: s[0][2],
@@ -30,21 +30,185 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 				D:  s[2][1],
 				DR: s[2][2]
 			};
+			box.init();
 			exports.initialized = true;
 			callback();
 		});
 	}
 
-	function box(text, prompt, onclose) {
-		box = new Box().attach().text(text).disappear().appear(true);
-		if (prompt) {
-			input.mouse.mark(box.rect, function(){
-				box.disappear(true, onclose);
-				input.mouse.unmark(box.rect);
-			});
+	var box = {
+		offset:     new geometry.Vector(40, 32),
+		size:       null,
+		surface:    null,
+		rect:       null,
+		sprite:     null,
+		animation:  null,
+		cache:      null,
+		item:       null,
+		queue:      [],
+		textboxes:  [],
+		cache:      {},
+		min:        {},
+		max:        {},
+		init:       function() {
+			var s = new geometry.Vector(config.tileSize, config.tileSize), c = video.display.rect.center;
+			this.size         = new geometry.Vector(video.display.size.x - this.offset.x * 2, video.display.size.y - this.offset.y * 2);
+			this.surface      = new video.Surface  (this.size);
+			this.rect         = new geometry.Rect  (this.offset, this.size);
+			this.sprite       = new video.Sprite   (this.rect, this.surface).attach();
+			this.sprite.depth = 4;
+			this.min = {
+				size: s,
+				rect: new geometry.Rect(c.x - s.x / 2, c.y - s.y / 2, s.x, s.y),
+				surface: new video.Surface(s)
+			};
+			this.max = {
+				size: this.rect.size,
+				rect: this.rect.clone(),
+				surface: this.surface.clone()
+			};
+			this.draw();
+		},
+		draw:       function() {
+			var t = config.tileSize,
+			    xf  = this.surface.size.x,
+			    yf  = this.surface.size.y,
+			    xfr = Math.ceil(xf/t),
+			    yfr = Math.ceil(yf/t),
+			    c = this.cache,
+			    s = this.surface,
+			    v = geometry.Vector;
+
+			this.clear();
+
+			for (y = 0; y < yfr; y ++) {
+				for (x = 0; x < xfr; x ++) {
+					if (x > 0 && x < xfr-1) {
+						if (y > 0 && y < yfr-1) {
+							s.blit(c.C, new v(x*t, y*t));
+						}
+						s.blit(c.U, new v(x*t, 0));
+						s.blit(c.D, new v(x*t, yf-t));
+					}
+				}
+				if (y > 0 && y < yfr-1) {
+					s.blit(c.L, new v(0, y*t));
+					s.blit(c.R, new v(xf-t, y*t));
+				}
+			}
+			s.blit(c.UL);
+			s.blit(c.UR, new v(xf-t, 0));
+			s.blit(c.DL, new v(0, yf-t));
+			s.blit(c.DR, new v(xf-t, yf-t));
+		},
+		clear:      function() {
+			this.surface.clear();
+		},
+		reset:      function() {
+			this.hideText();
+			this.sprite.children.some(function(child){ child.detach(this.sprite); }), this;
+			this.textboxes.length = 0;
+		},
+		text:     function(text) {
+			if (Object.prototype.toString.call(text) === "[object Array]") {
+				text.some(function(entry){
+					this.text(entry);
+				}, this);
+			} else {
+				var x, y, rect;
+				x = config.tileSize * 2;
+				y = config.tileSize;
+				this.textboxes.some(function(text){ y += text.rect.height + 8; });
+				rect = new geometry.Rect(x, y, this.max.rect.width - x * 2, 0);
+				this.textboxes.push(new Text(rect, text, true));
+			}
+			height = config.tileSize * 2 - 12;
+			this.textboxes.some(function(text){ height += text.rect.height + 8; });
+			this.resize(this.max.rect.width, height);
+			return this;
+		},
+		hideText:   function(text) {
+			this.textboxes.some(function(child){ child.detach(this); }, this);
+		},
+		showText:   function(text) {
+			this.textboxes.some(function(child){ child.attach(this); }, this);
+		},
+		resize:     function(width, height) {
+			var c = video.display.rect.center,  // Center of screen
+			    r = this.rect,                  // Rectangle alias
+			    t = config.tileSize,            // Tile size alias
+			    v = geometry.Vector,            // Vector alias
+			    x, y;                           // i.e. Iterator, index, etc.
+
+			this.size.set(width, height);
+			this.rect.size.set(width, height);
+			this.max.rect     = r.clone();
+			this.max.size     = r.size.clone();
+			r.pos.set(c.x - r.width / 2, c.y - r.height / 2);
+			this.surface.size = r.size;
+			this.draw();
+		},
+		alert:      function(text) {
+			var item = {
+				type:     "alert",
+				text:     text
+			},  x = this.queue.length;
+			this.queue.push(item);
+			if (!x)
+				this.process();
+			else if (this.item.type === "alert")
+				this.collapse(this.item.callback);
+		},
+		prompt:     function(text, callback) {
+			var item = {
+				type:     "prompt",
+				text:     text,
+				callback: callback
+			},  x = this.queue.length;
+			this.queue.push(item);
+			if (!x)
+				this.process();
+			else if (this.item.type === "alert")
+				this.collapse(this.item.callback);
+		},
+		process:    function(item) {
+			if (!this.item && this.queue.length)
+				this.item = this.queue[0];
+			if (this.item) {
+				this.expand(this.item.text);
+				if (this.item.type === "prompt") {
+					input.mouse.mark(this.rect, function(){
+						box.collapse(box.item.callback);
+						input.mouse.unmark(box.rect);
+					});
+				}
+			}
+		},
+		expand:     function(text, callback) {
+			this.clear();
+			this.reset();
+			this.text(text);
+			this.sprite.visible = true;
+			this.animation = new Animation(this.min.rect, this.max.rect, function(){
+				this.showText();
+				if (callback)
+					callback();
+			}).init(this);
+		},
+		collapse:   function(callback) {
+			this.clear();
+			this.reset();
+			this.animation = new Animation(this.max.rect, this.min.rect, function(){
+				this.queue.shift();
+				this.item = null;
+				this.clear();
+				this.sprite.visible = false;
+				this.process();
+				if (callback)
+					callback();
+			}).init(this);
 		}
-		return box;
-	}
+	};
 
 	function update() {
 		animations.some(function(animation){
@@ -98,7 +262,6 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 			r.pos.set(c.x - r.width / 2, c.y - r.height / 2);
 
 			this.item.surface.size = r.size;
-
 			this.item.draw();
 		}
 	};
@@ -122,6 +285,8 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 
 		this.content = content;
 
+
+
 		var t = this.content, word, letters = [];
 		for (var i = 0; i < t.length; i ++) {
 			while (tx == 0 && t[i] === " ") i ++;
@@ -138,7 +303,7 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 				}
 				wx = tx;
 			}
-	
+
 			if (wx + word.length > mw) {
 				tx = wx = 0;
 				ty ++;
@@ -154,11 +319,11 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 					surface: video.tilesets.text[y][x],
 					pos: tx
 				});
-			}		
+			}
 			if (++ tx >= mw) {
 				tx = wx = 0;
 				ty ++;
-			}	
+			}
 		}
 
 		this.surface.canvas.height = this.surface.size.y = (ty + 1) * (s + 4);
@@ -183,159 +348,19 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 
 	Text.prototype = {
 		glyphSize: 8,
-		sequence:  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!?-'\"<>() ",
+		sequence:  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.,!?-'\"<>()@ ",
 		attach:    function(parent) {
-			if (parent instanceof Box) {
+			if (parent === box) {
 				parent = parent.sprite;
 			}
 			this.sprite.attach(parent);
 			return this;
 		},
 		detach:    function(parent) {
-			if (parent instanceof Box) {
+			if (parent === box) {
 				parent = parent.sprite;
 			}
 			this.sprite.detach(parent);
-			return this;
-		}
-	};
-
-	function Box(rect){
-		var x, y, w, h, t, s, c, sprite;
-
-		t = config.tileSize;
-
-		x = 2.5;
-		y = 2;
-		rect = new geometry.Rect(x * t, y * t, (config.resolution.x / t - x * 2)*t, (config.resolution.y / t - y * 2)*t);
-
-		this.size = new geometry.Vector(rect.width / t, rect.height / t);
-		this.rect = rect;
-		this.surface = new video.Surface(this.rect.size.clone());
-		this.sprite = new video.Sprite(this.rect, this.surface);
-		this.sprite.depth = 4;
-		this.animation = null;
-		this.textboxes = [];
-		children.push(this);
-
-		exports.shadowed = true;
-
-		c = video.display.rect.center;
-		s = new geometry.Vector(config.tileSize, config.tileSize);
-
-		this.draw();
-
-		this.min = {
-			size: s,
-			rect: new geometry.Rect(c.x - s.x / 2, c.y - s.y / 2, s.x, s.y),
-			surface: new video.Surface(s)
-		};
-		this.max = {
-			size: this.rect.size,
-			rect: this.rect.clone(),
-			surface: this.surface.clone()
-		};
-	}
-
-	Box.prototype = {
-		cache: {},
-		childState: function(state) {
-			this.sprite.children.some(function(child){ child.visible = state; });
-		},
-		draw: function(){
-			var t = config.tileSize,
-			    xf  = this.surface.size.x,
-			    yf  = this.surface.size.y,
-			    xfr = Math.ceil(xf/t),
-			    yfr = Math.ceil(yf/t),
-			    c = this.cache,
-			    s = this.surface,
-			    v = geometry.Vector;
-
-			s.clear();
-
-			for (y = 0; y < yfr; y ++) {
-				for (x = 0; x < xfr; x ++) {
-					if (x > 0 && x < xfr-1) {
-						if (y > 0 && y < yfr-1) {
-							s.blit(c.C, new v(x*t, y*t));
-						}
-						s.blit(c.U, new v(x*t, 0));
-						s.blit(c.D, new v(x*t, yf-t));
-					}
-				}
-				if (y > 0 && y < yfr-1) {
-					s.blit(c.L, new v(0, y*t));
-					s.blit(c.R, new v(xf-t, y*t));
-				}
-			}
-			s.blit(c.UL);
-			s.blit(c.UR, new v(xf-t, 0));
-			s.blit(c.DL, new v(0, yf-t));
-			s.blit(c.DR, new v(xf-t, yf-t));
-		},
-		text: function(content) {
-			if (Object.prototype.toString.call(content) === "[object Array]") {
-				content.some(function(entry){
-					this.text(entry);
-				}, this);
-			} else {
-				var x, y, rect;
-				x = config.tileSize * 2;
-				y = config.tileSize;
-				this.textboxes.some(function(text){ y += text.rect.height + 8; });
-				rect = new geometry.Rect(x, y, this.rect.width - config.tileSize * 4, 0);
-				this.textboxes.push(new Text(rect, content, true).attach(this));
-			}
-			y = config.tileSize * 2 - 12;
-			this.textboxes.some(function(text){ y += text.rect.height + 8; });
-			this.resize(null, y);
-			return this;
-		},
-		resize: function(x, y){
-			this.rect.height  = y;
-			this.rect.y       = video.display.rect.center.y - y / 2;
-			this.size.y       = y;
-			this.surface.size = new geometry.Vector(this.rect.width, y);
-			this.max.rect     = this.rect.clone();
-			this.max.size     = this.rect.size;
-			this.draw();
-		},
-		attach: function(parent) {
-			this.sprite.attach(parent);
-			return this;
-		},
-		disappear: function(animated, callback) {
-			this.childState(false);
-			if (!animated) {
-				this.surface.clear();
-				this.sprite.visible = false;
-				exports.shadowed = false;
-			} else {
-				this.sprite.children.some(function(child){ child.detach(this.sprite); });
-				this.animation = new Animation(this.max.rect, this.min.rect, function(){
-					exports.shadowed = false;
-					this.sprite.detach();
-					if (callback)
-						callback();
-				}).init(this);
-			}
-			return this;
-		},
-		appear: function(animated, callback) {
-			exports.shadowed = true;
-			this.sprite.visible = true;
-			if (!animated) {
-				this.childState(true);
-			} else {
-				this.surface.clear();
-				this.childState(false);
-				this.animation = new Animation(this.min.rect, this.max.rect, function(){
-					if (callback)
-						callback();
-					this.childState(true);
-				}).init(this);
-			}
 			return this;
 		}
 	};
@@ -345,9 +370,18 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		initialized: false,
 		init: init,
 		update: update,
-		Text: Text,
-		Box: Box,
-		box: box
+		box: {
+			alert: function(){
+				box.alert.apply(box, arguments);
+			},
+			prompt: function(){
+				box.prompt.apply(box, arguments);
+			},
+			collapse: function(callback){
+				box.collapse.call(box, callback);
+			}
+		},
+		Text: Text
 	};
 
 	return exports;

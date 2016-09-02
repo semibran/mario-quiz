@@ -18,7 +18,7 @@ define(imports, function() {
 	var snakeman = this;
 	var config = {
 		tileSize:   16,
-		fps:        60, 
+		fps:        60,
 		resolution: {
 			x: 256,
 			y: 224
@@ -40,20 +40,19 @@ define(imports, function() {
 
 		video.init(config);
 		ui.init(config, function(){
-			var box = ui.box("Now loading...");
+			ui.box.alert("Loading skins...");
 			loop();
 			game.init(config, function(){
+				ui.box.alert("Fetching music...");
 				audio.init(config, function(){
 					input.init();
-					box.disappear(true, function(){
-						ui.box(["Load complete!", "Click this box to start."], true, function(){
-							game.start(function(){
-								config.init.apply({}, args);
-								audio.play("smb");
-							});
+					ui.box.prompt(["Load complete!", "Click this box to start."], function(){
+						game.start(function(){
+							audio.play(config.stage);
+							config.init.apply({}, args);
 						});
-						audio.play("1up");
 					});
+					audio.play("1up");
 				});
 			});
 		});

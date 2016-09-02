@@ -2,7 +2,7 @@ define(function(){
 	var channels = 4,
 		sound = {},
 		files = {
-			bgm: ["smb"],
+			bgm: [],
 			sfx: ["pipe", "bump", "coin", "1up", "pause"]
 		},
 		sequencer,
@@ -34,6 +34,8 @@ define(function(){
 	function init(data, callback){
 		config = data;
 		sequencer.init();
+
+		files.bgm.push(config.stage);
 
 		var thread = [];
 		for (var type in files) {
