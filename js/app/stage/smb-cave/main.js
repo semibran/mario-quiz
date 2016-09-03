@@ -1,4 +1,5 @@
 define({
+	name: "Cave",
 	size: {
 		x: 32,
 		y: 16
@@ -10,7 +11,7 @@ define({
 	map: [
 		" +==",
 		"#O||",
-		"?@@@"
+		"?@@."
 	],
 	attributes: {
 		solid: "=|+O#?",

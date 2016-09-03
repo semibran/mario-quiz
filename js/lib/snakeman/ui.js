@@ -6,20 +6,28 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 
 	function init(data, callback) {
 		config = data;
-		video.load([
+		var items = [
 			{
 				src:      "./js/app/ui/text.png",
 				id:       "text",
 				tile:     new geometry.Vector(8, 8)
 			},
 			{
-				src:      "./js/app/stage/"+config.stage+"/box-"+config.stage+".png",
-				id:       "box",
+				src:      "./js/app/ui/box.png",
+				id:       "box-default",
 				tile:     new geometry.Vector(16, 16)
 			}
-		], function(){
-			var s = video.tilesets.box;
-			box.cache = {
+		];
+		// config.stages.some(function(stage){
+		// 	items.push({
+		// 		src:      "./js/app/stage/"+stage+"/box-"+stage+".png",
+		// 		id:       "box-"+stage,
+		// 		tile:     new geometry.Vector(16, 16)
+		// 	});
+		// });
+		video.load(items, function(){
+			var s = video.tilesets["box-default"];
+			box.cache["default"] = {
 				UL: s[0][0],
 				U:  s[0][1],
 				UR: s[0][2],
@@ -30,8 +38,48 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 				D:  s[2][1],
 				DR: s[2][2]
 			};
+			// config.stages.some(function(stage){
+			// 	var s = video.tilesets["box-"+stage];
+			// 	box.cache[stage] = {
+			// 		UL: s[0][0],
+			// 		U:  s[0][1],
+			// 		UR: s[0][2],
+			// 		L:  s[1][0],
+			// 		C:  s[1][1],
+			// 		R:  s[1][2],
+			// 		DL: s[2][0],
+			// 		D:  s[2][1],
+			// 		DR: s[2][2]
+			// 	};
+			// });
 			box.init();
 			exports.initialized = true;
+			callback();
+		});
+	}
+
+	function load(stage, callback) {
+		var id = "box-"+stage;
+		var items = [
+			{
+				src:      "./js/app/stage/"+stage+"/"+id+".png",
+				id:       id,
+				tile:     new geometry.Vector(16, 16)
+			}
+		];
+		video.load(items, function(){
+			var s = video.tilesets[id];
+			box.cache[stage] = {
+				UL: s[0][0],
+				U:  s[0][1],
+				UR: s[0][2],
+				L:  s[1][0],
+				C:  s[1][1],
+				R:  s[1][2],
+				DL: s[2][0],
+				D:  s[2][1],
+				DR: s[2][2]
+			};
 			callback();
 		});
 	}
@@ -43,7 +91,6 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		rect:       null,
 		sprite:     null,
 		animation:  null,
-		cache:      null,
 		item:       null,
 		queue:      [],
 		textboxes:  [],
@@ -67,7 +114,6 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 				rect: this.rect.clone(),
 				surface: this.surface.clone()
 			};
-			this.draw();
 		},
 		draw:       function() {
 			var t = config.tileSize,
@@ -75,7 +121,7 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 			    yf  = this.surface.size.y,
 			    xfr = Math.ceil(xf/t),
 			    yfr = Math.ceil(yf/t),
-			    c = this.cache,
+			    c = this.cache[config.stage] || this.cache["default"],
 			    s = this.surface,
 			    v = geometry.Vector;
 
@@ -106,32 +152,59 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		},
 		reset:      function() {
 			this.hideText();
-			this.sprite.children.some(function(child){ child.detach(this.sprite); }), this;
+			this.textboxes.some(function(child){
+				if (child.rectAbsolute) {
+					input.mouse.unmark(child.rectAbsolute);
+				}
+			});
+			this.sprite.children.some(function(child){ child.detach(this.sprite); }, this);
 			this.textboxes.length = 0;
 		},
-		text:     function(text) {
-			if (Object.prototype.toString.call(text) === "[object Array]") {
-				text.some(function(entry){
-					this.text(entry);
+		text:     function(content, align) {
+			align = align || "center";
+			if (content.constructor.name === "Array") {
+				content.some(function(entry, index){
+					this.text(entry, align);
 				}, this);
 			} else {
-				var x, y, rect;
+				var x, y, rect, text, item = null;
+				if (content.constructor.name === "Object") {
+					item = content;
+					content = item.text;
+					align = item.align || align;
+				}
 				x = config.tileSize * 2;
 				y = config.tileSize;
 				this.textboxes.some(function(text){ y += text.rect.height + 8; });
 				rect = new geometry.Rect(x, y, this.max.rect.width - x * 2, 0);
-				this.textboxes.push(new Text(rect, text, true));
+				text = new Text(rect, content, align, true);
+				if (item)
+					text.callback = item.callback;
+				this.textboxes.push(text);
 			}
 			height = config.tileSize * 2 - 12;
 			this.textboxes.some(function(text){ height += text.rect.height + 8; });
 			this.resize(this.max.rect.width, height);
 			return this;
 		},
-		hideText:   function(text) {
-			this.textboxes.some(function(child){ child.detach(this); }, this);
+		hideText:   function() {
+			this.textboxes.some(function(child){
+				if (child.rectAbsolute) {
+					input.mouse.unmark(child.rectAbsolute);
+				}
+				child.detach(this);
+			}, this);
 		},
-		showText:   function(text) {
-			this.textboxes.some(function(child){ child.attach(this); }, this);
+		showText:   function() {
+			this.textboxes.some(function(child){
+				if (child.callback) {
+					child.rectAbsolute = child.rect.added(box.offset);
+					input.mouse.mark(child.rectAbsolute, function() {
+						child.callback.call(box);
+					});
+				}
+				child.attach(this);
+			}, this);
 		},
 		resize:     function(width, height) {
 			var c = video.display.rect.center,  // Center of screen
@@ -148,40 +221,53 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 			this.surface.size = r.size;
 			this.draw();
 		},
-		alert:      function(text) {
+		alert:      function(content, close, callback) {
 			var item = {
 				type:     "alert",
-				text:     text
-			},  x = this.queue.length;
-			this.queue.push(item);
-			if (!x)
-				this.process();
-			else if (this.item.type === "alert")
-				this.collapse(this.item.callback);
-		},
-		prompt:     function(text, callback) {
-			var item = {
-				type:     "prompt",
-				text:     text,
+				content:  content,
+				close:    close,
 				callback: callback
-			},  x = this.queue.length;
+			};
 			this.queue.push(item);
-			if (!x)
-				this.process();
-			else if (this.item.type === "alert")
-				this.collapse(this.item.callback);
+			if (this.queue.length == 1)                                 // If there are no other items in the queue...
+				this.process();                                         // Show this message immediately.
+			else if(this.item && !this.item.close && !this.animation) { // If a low-pri message is currently active...
+				this.collapse();                                        // - Collapse it.
+			}
 		},
 		process:    function(item) {
 			if (!this.item && this.queue.length)
 				this.item = this.queue[0];
 			if (this.item) {
-				this.expand(this.item.text);
-				if (this.item.type === "prompt") {
-					input.mouse.mark(this.rect, function(){
-						box.collapse(box.item.callback);
-						input.mouse.unmark(box.rect);
-					});
+				if (this.item.content.constructor.name === "String")
+					this.item.content = [this.item.content];
+				var c = this.item.close, content;
+				content = [].slice.call(this.item.content);
+				if (c) {
+					if (c.constructor.name === "Object") {
+						content.push({
+							text:     c.text,
+							align:    c.align || "center",
+							callback: c.callback || function(){
+								this.collapse(c.callback);
+							}
+						});
+					} else if (c.constructor.name === "String") {
+						content.push({
+							text:     c,
+							callback: function(){
+								this.collapse(this.item.callback);
+							}
+						});
+					} else if (c.constructor.name === "Number") {
+						setTimeout(function(){
+							var args = [];
+							if (box.item.callback) args.push(box.item.callback);
+							box.collapse.apply(box, args);
+						}, 1000 * box.item.close);
+					}
 				}
+				this.expand(content);
 			}
 		},
 		expand:     function(text, callback) {
@@ -189,23 +275,32 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 			this.reset();
 			this.text(text);
 			this.sprite.visible = true;
+			exports.shadowed = true;
 			this.animation = new Animation(this.min.rect, this.max.rect, function(){
+				this.animation = null;
 				this.showText();
+				if (this.item && !this.item.close && this.queue.length > 1)
+					this.collapse();
 				if (callback)
 					callback();
 			}).init(this);
 		},
 		collapse:   function(callback) {
+			if (this.animation) throw "SnakemanError: Attempted collapse during animation";
 			this.clear();
 			this.reset();
 			this.animation = new Animation(this.max.rect, this.min.rect, function(){
+				this.animation = null;
 				this.queue.shift();
 				this.item = null;
 				this.clear();
 				this.sprite.visible = false;
 				this.process();
-				if (callback)
+				if (callback) {
+					// console.log(callback);
 					callback();
+				}
+				exports.shadowed = false;
 			}).init(this);
 		}
 	};
@@ -230,7 +325,7 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 	}
 
 	Animation.prototype = {
-		duration: 15,
+		duration: 10,
 		init: function(item){
 			this.running = true;
 			this.item = item;
@@ -266,7 +361,7 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		}
 	};
 
-	function Text(pos, content, shadow) {
+	function Text(pos, content, align, shadow) {
 		var rect, s = this.glyphSize;
 
 		if (pos instanceof geometry.Rect) {
@@ -279,15 +374,12 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		this.surface = new video.Surface(this.rect.size);
 		this.sprite = new video.Sprite(this.rect, this.surface);
 		this.sprite.depth = 5;
-		this.shadow = shadow;
-
-		var tx = 0, ty = 0, wx;
-
 		this.content = content;
+		this.align = align || "center";
+		this.shadow = shadow;
+		this.callback = null;
 
-
-
-		var t = this.content, word, letters = [];
+		var t = content, tx = 0, ty = 0, wx, word, letters = [];
 		for (var i = 0; i < t.length; i ++) {
 			while (tx == 0 && t[i] === " ") i ++;
 			var c = t[i];
@@ -309,17 +401,13 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 				ty ++;
 			}
 
-			index = this.sequence.indexOf(c.toUpperCase());
-			if (index != -1) {
-				x = index % 10;
-				y = (index - x) / 10 + (this.shadow ? 5 : 0);
-				if (!letters[ty]) letters[ty] = [];
-				letters[ty].push({
-					char: c,
-					surface: video.tilesets.text[y][x],
-					pos: tx
-				});
-			}
+			if (!letters[ty]) letters[ty] = [];
+			letters[ty].push({
+				char: c,
+				surface: Text.retrieve(c, this.shadow),
+				pos: tx
+			});
+
 			if (++ tx >= mw) {
 				tx = wx = 0;
 				ty ++;
@@ -328,22 +416,44 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 
 		this.surface.canvas.height = this.surface.size.y = (ty + 1) * (s + 4);
 
-		var prev, surf, x, alignment = "center";
+		var width = 0;
+
+		letters.some(function(line){
+			if(line.length > width) width = line.length;
+		});
+
+		var temp = this.rect.size.x;
+		this.rect.size.set(width * s, letters.length * (s + 4));
+		if (this.align == "left")
+			this.rect.pos.set(pos.x, pos.y);
+		else if (this.align == "center")
+			this.rect.pos.set(pos.x + temp / 2 - this.rect.size.x / 2, pos.y);
+		this.surface.size = this.rect.size;
+
+		var prev, surf, x, gx = 0, y;
 		letters.some(function(line, index){
 			surf = new video.Surface(new geometry.Vector(line.length * s, s));
 			line.some(function(letter){
 				surf.blit(letter.surface, new geometry.Vector(letter.pos * s, 0));
 			});
-			if (alignment === "left") // Simple enough
-				x = 0;
-			else if (alignment === "center") // Works like a charm!
-				x = this.surface.size.x / 2 - surf.size.x / 2;
-			else if (alignment === "right") // PROBLEM: Needs to remove extra right-side spaces?
-				x = this.surface.size.x - surf.size.x;
-			this.surface.blit(surf, new geometry.Vector(x, index * (s + 4)));
+			x = this.surface.size.x / 2 - line.length * s / 2;
+			y = index * (s + 4);
+			this.surface.blit(surf, new geometry.Vector(x, y));
+			if (line.length > gx) gx = line.length;
 		}, this);
 
 		children.push(this);
+	}
+
+	Text.retrieve = function(char, shadow) {
+		index = Text.prototype.sequence.indexOf(char.toUpperCase());
+		if (index != -1) {
+			x = index % 10;
+			y = (index - x) / 10 + (shadow ? 5 : 0);
+			return video.tilesets.text[y][x];
+		} else {
+			return null;
+		}
 	}
 
 	Text.prototype = {
@@ -369,13 +479,11 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		shadowed: false,
 		initialized: false,
 		init: init,
+		load: load,
 		update: update,
 		box: {
 			alert: function(){
 				box.alert.apply(box, arguments);
-			},
-			prompt: function(){
-				box.prompt.apply(box, arguments);
 			},
 			collapse: function(callback){
 				box.collapse.call(box, callback);

@@ -1,4 +1,5 @@
 define({
+	name: "Overworld",
 	size: {
 		x: 32,
 		y: 16
@@ -10,7 +11,7 @@ define({
 	map: [
 		"<X>{}_==#",
 		"(^);:,||O",
-		"E93 ?@@@+"
+		"E93 ?@@.+"
 	],
 	attributes: {
 		solid: "=|#O?+",

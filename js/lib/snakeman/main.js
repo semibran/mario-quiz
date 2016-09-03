@@ -31,7 +31,7 @@ define(imports, function() {
 	function init(data){
 
 		// Config setup
-		var properties = ["init", "tileSize", "resolution", "path", "stage", "char", "user"] // Properties to copy
+		var properties = ["init", "tileSize", "resolution", "path", "stage", "stages", "char", "user"] // Properties to copy
 		for (prop in data) {
 			if (properties.indexOf(prop) !== -1) {
 				config[prop] = data[prop];
@@ -40,24 +40,57 @@ define(imports, function() {
 
 		video.init(config);
 		ui.init(config, function(){
-			ui.box.alert("Loading skins...");
+			input.init();
 			loop();
-			game.init(config, function(){
-				ui.box.alert("Fetching music...");
-				audio.init(config, function(){
-					input.init();
-					ui.box.prompt(["Load complete!", "Click this box to start."], function(){
-						game.start(function(){
-							audio.play(config.stage);
-							config.init.apply({}, args);
-						});
-					});
-					audio.play("1up");
-				});
+			ui.box.alert("Fetching sound effects...");
+			audio.init(config, function(){
+				ui.box.alert("Sound effects loaded successfully.", 1, load);
 			});
 		});
 
-		// });
+		game.reload = load;
+	}
+
+	function load(){
+		var prompt = ["Which stage would you like to use?"];
+		var index = 0;
+		function loadStage(index, callback) {
+			var id = config.stages[index];
+			var path = config.path+"stage/"+id+"/";
+			require([path+"main.js"], function(data){
+				prompt.push({
+					text:     data.name,
+					callback: function(){
+						this.collapse(function(){
+							config.stage = id;
+							ui.load(id, function(){
+								ui.box.alert("Loading stage data...");
+								game.init(config, function(){
+									ui.box.alert("Fetching music...");
+									audio.load(config.stage, "bgm", function(){
+										ui.box.alert("Load all clear!", "OK", function(){
+											game.start(id, function(){
+												audio.play(id);
+												config.init.apply({}, args);
+											});
+										});
+										audio.play("1up");
+									});
+								});
+							});
+						});
+					}
+				});
+				if (++index < config.stages.length) {
+					loadStage(index, callback);
+				} else {
+					callback();
+				}
+			});
+		}
+		loadStage(index, function(){
+			ui.box.alert(prompt);
+		});
 	}
 
 	function loop(){

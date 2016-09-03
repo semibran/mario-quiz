@@ -69,24 +69,27 @@ define(["./geometry", "./video"], function(geometry){
 		over: function(x) {
 			return false;
 		},
-		mark: function(rect, callback) {
-			function move(pos) {
-				if (rect.contains(pos)) {
-					document.body.style.cursor = "pointer";
+		mark: function(rect, onclick, onhover) {
+			if (!this.marked(rect)) {
+				function move(pos) {
+					if (rect.contains(pos)) {
+						if (onhover) onhover(pos);
+						else document.body.style.cursor = "pointer";
+					}
 				}
-			}
-			function click(pos) {
-				if (rect.contains(pos)) {
-					callback(pos);
+				function click(pos) {
+					if (rect.contains(pos)) {
+						if (onclick) onclick(pos);
+					}
 				}
+				this.listen("move", move);
+				this.listen("click", click);
+				marked.push({
+					rect: rect,
+					move: move,
+					click: click
+				});
 			}
-			this.listen("move", move);
-			this.listen("click", click);
-			marked.push({
-				rect: rect,
-				move: move,
-				click: click
-			});
 		},
 		unmark: function(target){
 			var index, rect;
@@ -96,9 +99,21 @@ define(["./geometry", "./video"], function(geometry){
 					index = i;
 				}
 			});
-			this.unlisten(rect.move);
-			this.unlisten(rect.click);
-			marked.splice(index, 1);
+			if (rect) {
+				this.unlisten(rect.move);
+				this.unlisten(rect.click);
+				marked.splice(index, 1);
+			}
+		},
+		marked: function(target) {
+			var index, rect;
+			marked.some(function(obj, i){
+				if (obj.rect === target) {
+					rect = obj;
+					index = i;
+				}
+			});
+			return !!rect;
 		},
 		getRelativePos: function(element){
 			var rect = element.getBoundingClientRect();

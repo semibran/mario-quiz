@@ -4,41 +4,140 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 
 	function init(data, callback){
 		config = data;
-		video.load([
-			{
-				src:      "./js/app/char/"+config.char+"/"+config.char+".png",
-				id:       config.char,
+		var items = [{
+			src:      "./js/app/char/"+config.char+"/"+config.char+".png",
+			id:       config.char,
+			tile:     new geometry.Vector(16, 16)
+		}];
+		config.stages.some(function(stage){
+			items.push({
+				src:      "./js/app/stage/"+stage+"/tileset-"+stage+".png",
+				id:       stage,
 				tile:     new geometry.Vector(16, 16)
-			},
-			{
-				src:      "./js/app/stage/"+config.stage+"/tileset-"+config.stage+".png",
-				id:       config.stage,
-				tile:     new geometry.Vector(16, 16)
-			}
-		], function(){
+			});
+		});
+		video.load(items, function(){
 			exports.initialized = true;
 			callback();
 		});
 	}
 
-	function start(callback) {
-		stage = new Stage(config.stage, callback);
+	function start(id, callback) {
+		stage = new Stage(id, callback);
 	}
 
 	function spawn() {
 		new Character(config.char);
 		audio.play("pipe");
-	}
-
-	function update(){
-		if (stage)
-			stage.update();
 		characters.some(function(char){
-			char.update();
-		})
+			input.mouse.mark(char.rect, function(){
+				audio.play("coin");
+				ui.box.alert([
+					"It's a me, Mario!",
+					{
+						text: "Toggle sound",
+						align: "left",
+						callback: function(){
+							var command = audio.gain() ? "mute" : "unmute";
+							audio[command].call();
+						}
+					},
+					{
+						text: "Reset questions",
+						align: "left",
+						callback: function(){
+							this.collapse(function(){
+								game.reset(true);
+							});
+						}
+					},
+					{
+						text: "Return to menu",
+						align: "left",
+						callback: function() {
+							this.collapse();
+							clear();
+							audio.stop();
+							audio.play("oops");
+							if (game.reload)
+								game.reload();
+							else
+								throw "SnakemanError: Game reload failed.";
+						}
+					}
+				],
+				{
+					text:"Return to game",
+					align: "left"
+				}
+				);
+			});
+		});
 	}
 
-	function Stage(name, callback){
+	function reset(init) {
+		if (init) {
+			audio.play("bump");
+			audio.play("pause");
+		}
+		stage.tilesTyped["?"].some(function(tile, index){
+			if (init) {
+				tile.bump(function(){
+					tile.reset();
+				}, null, false);
+			}
+			if (!input.mouse.marked(tile.rect)) {
+				input.mouse.mark(tile.rect, function(){
+					if (!ui.shadowed) {
+						tile.bump(
+						function(){
+							var index = this.stage.attributes["."].index;
+							this.sprite.surface = video.tilesets[this.stage.name][index.y][index.x];
+						},
+						function(){
+							audio.play("pause");
+							ui.box.alert(config.user.questions[index]);
+						}, ".");
+						input.mouse.unmark(tile.rect);
+					}
+				}, function(){
+					if (!ui.shadowed) {
+						document.body.style.cursor = "pointer";
+					}
+				});
+			}
+		});
+	}
+
+	function clear() {
+		characters.some(function(character){
+			character.sprite.detach();
+			input.mouse.unmark(character.rect);
+		});
+		characters.length = 0;
+		stage.tiles.some(function(tile){
+			if (input.mouse.marked(tile.rect))
+				input.mouse.unmark(tile.rect);
+			if (tile.sprite)
+				tile.sprite.detach();
+		});
+		stage.tiles.length = 0;
+		stage.foreground.detach();
+		stage.background.detach();
+		stage = null;
+	}
+
+	function update() {
+		if (stage) {
+			// stage.foreground.surface.clear();
+			stage.update();
+		}
+		characters.some(function(char) {
+			char.update();
+		});
+	}
+
+	function Stage(name, callback) {
 		this.name = name;
 		this.tiles = [];
 		this.tilesTyped = {};
@@ -71,6 +170,7 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 				for (j = 0; j < row.length; j ++) {
 					char = row[j];
 					a = {
+						char:      char,
 						solid:     false,
 						nudge:     false,
 						break:     false,
@@ -127,24 +227,19 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 					}
 				}
 			}
-			stage.tilesTyped["?"].some(function(tile, index){
-				input.mouse.mark(tile.rect, function(){
-					if (!ui.shadowed) {
-						tile.bump(function(){
-							audio.play("pause");
-							ui.box.prompt(config.user.questions[index]);
-						}, true);
-						input.mouse.unmark(tile.rect);
-					}
-				});
-			});
+			
 			stage.tilesTyped["+"].some(function(tile, index){
 				input.mouse.mark(tile.rect, function(){
 					if (!ui.shadowed) {
 						tile.bump();
 					}
+				}, function(){
+					if (!ui.shadowed) {
+						document.body.style.cursor = "pointer";
+					}
 				});
 			});
+			game.reset();
 			callback();
 		});
 	}
@@ -180,6 +275,8 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 		this.stage = stage;
 		this.pos = pos;
 		this.rect = new geometry.Rect(t*pos.x, t*pos.y, t, t);
+		this.data = null;
+		this.char = null;
 		this.surface = null;
 		this.solid = false;
 		this.nudge = false;
@@ -198,6 +295,9 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 
 	Tile.prototype = {
 		init: function(data) {
+			this.data = data;
+			this.animationTimer = 0;
+			this.animationIndex = 0;
 			var attribute;
 			for (attribute in data) {
 				this[attribute] = data[attribute];
@@ -207,21 +307,23 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 			if (!this.animation && !this.nudge && !this.break) {
 				sprite.surface.blit(surface, this.rect.pos);
 			} else {
-				this.sprite = new video.Sprite(this.rect, surface).attach();
-				if (this.front) {
-					this.sprite.depth = 2;
-				}
+				if (!this.sprite)
+					this.sprite = new video.Sprite(this.rect, surface).attach(/* sprite */);
 			}
 		},
-		bump: function(callback, question){
+		reset: function() {
+			this.init(this.data);
+		},
+		bump: function(before, after, sound){
 			if (!this.bumping) {
-				audio.play("bump");
+				if (sound || typeof sound === "undefined")
+					audio.play("bump");
 				this.velocity.y = -this.bumpHeight;
 				this.bumping = true;
 				this.animation = null;
-				if (question)
-					this.sprite.surface = video.tilesets[this.stage.name][this.index.y][this.index.x+3];
-				this.bumpCallback = callback || function(){};
+				if (before)
+					before.call(this);
+				this.bumpCallback = after || function(){};
 			}
 		},
 		update: function(){
@@ -277,11 +379,12 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 		}
 	};
 
-	var exports = {
+	var game = exports = {
 		initialized: false,
 		init: init,
 		start: start,
 		spawn: spawn,
+		reset: reset,
 		update: update,
 		Stage: Stage,
 		Tile: Tile,
