@@ -1,6 +1,40 @@
 define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, geometry, input, ui, audio){
 
-	var stage, characters = [], config;
+	var stage,
+	    characters = [],
+	    hud = {
+	    	offset: new geometry.Vector(24, 16),
+	    	size:   null,
+	    	rect:   null,
+	    	sprite: null,
+	    	text:   {
+	    		top:    null,
+	    		bottom: null,
+	    	},
+	    	init:   function() {
+	    		var rect, surface;
+	    		this.size = new geometry.Vector(video.display.size.x - this.offset.x * 2, 16);
+				rect = new geometry.Rect(this.offset, this.size);
+				surface = new video.Surface(this.size);
+				this.sprite = new video.Sprite(rect, surface).attach();
+				this.sprite.depth = 2;
+	    	},
+	    	set:    function(top, bottom) {
+				this.clear();
+				this.text.top = new ui.Text(new geometry.Vector(0, 0), top).attach(this.sprite);
+				this.text.bottom = new ui.Text(new geometry.Vector(0, 8), bottom).attach(this.sprite);
+	    	},
+	    	clear:  function(){
+	    		if (this.text.top)
+	    			this.text.top.detach(this.sprite);
+	    		if (this.text.bottom)
+					this.text.bottom.detach(this.sprite);
+				this.text.top = null;
+				this.text.bottom = null;
+				this.sprite.surface.clear();
+	    	}
+	    },
+	    config;
 
 	function init(data, callback){
 		config = data;
@@ -23,6 +57,7 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 	}
 
 	function start(id, callback) {
+		hud.init();
 		stage = new Stage(id, callback);
 	}
 
@@ -31,12 +66,14 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 		audio.play("pipe");
 		characters.some(function(char){
 			input.mouse.mark(char.rect, function(){
+				var indent = " - ";
 				audio.play("coin");
 				ui.box.alert([
 					"It's a me, Mario!",
 					{
 						text: "Toggle sound",
 						align: "left",
+						indent: indent,
 						callback: function(){
 							var command = audio.gain() ? "mute" : "unmute";
 							audio[command].call();
@@ -45,6 +82,7 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 					{
 						text: "Reset questions",
 						align: "left",
+						indent: indent,
 						callback: function(){
 							this.collapse(function(){
 								game.reset(true);
@@ -54,6 +92,7 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 					{
 						text: "Return to menu",
 						align: "left",
+						indent: indent,
 						callback: function() {
 							this.collapse();
 							clear();
@@ -68,7 +107,8 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 				],
 				{
 					text:"Return to game",
-					align: "left"
+					align: "left",
+					indent: indent
 				}
 				);
 			});
@@ -76,10 +116,8 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 	}
 
 	function reset(init) {
-		if (init) {
+		if (init)
 			audio.play("bump");
-			audio.play("pause");
-		}
 		stage.tilesTyped["?"].some(function(tile, index){
 			if (init) {
 				tile.bump(function(){
@@ -95,8 +133,21 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 							this.sprite.surface = video.tilesets[this.stage.name][index.y][index.x];
 						},
 						function(){
+							var content = [];
+							config.user.questions[index].some(function(question){
+								content.push({
+									text: question,
+									align: "center",
+								});
+							});
+							ui.box.alert(content, {
+								text:     "(Click here to close.)",
+								callback: function(){
+									audio.play("bonus");
+									this.collapse();
+								}
+							});
 							audio.play("pause");
-							ui.box.alert(config.user.questions[index]);
 						}, ".");
 						input.mouse.unmark(tile.rect);
 					}
@@ -110,6 +161,7 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 	}
 
 	function clear() {
+		hud.clear();
 		characters.some(function(character){
 			character.sprite.detach();
 			input.mouse.unmark(character.rect);
@@ -149,7 +201,7 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 		this.attributes = {};
 		this.config = null;
 		var path = config.path+"stage/"+name+"/";
-		require([path+"main.js"], function(data){
+		require([path+"meta.js"], function(data){
 			stage.config = data;
 
 			stage.size.x = data.structure[0].length;
@@ -227,7 +279,7 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 					}
 				}
 			}
-			
+
 			stage.tilesTyped["+"].some(function(tile, index){
 				input.mouse.mark(tile.rect, function(){
 					if (!ui.shadowed) {
@@ -361,7 +413,7 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 		var t = config.tileSize;
 		this.type = type;
 		this.spawn = new geometry.Vector(stage.config.spawn.x * t, stage.config.spawn.y * t + 1);
-		this.rect = new geometry.Rect(this.spawn.x, this.spawn.y + t * 1.5, t, t);
+		this.rect = new geometry.Rect(this.spawn.x, this.spawn.y + t * 2, t, t);
 		this.surface = new video.Surface(this.rect.size);
 		this.surface.blit(video.tilesets[type][0][0], 0, 0);
 		this.sprite = new video.Sprite(this.rect, this.surface).attach();
@@ -381,14 +433,15 @@ define(["./video", "./geometry", "./input", "./ui", "./audio"], function(video, 
 
 	var game = exports = {
 		initialized: false,
-		init: init,
-		start: start,
-		spawn: spawn,
-		reset: reset,
-		update: update,
-		Stage: Stage,
-		Tile: Tile,
-		Character: Character
+		hud:         hud,
+		init:        init,
+		start:       start,
+		spawn:       spawn,
+		reset:       reset,
+		update:      update,
+		Stage:       Stage,
+		Tile:        Tile,
+		Character:   Character
 	};
 
 	return exports;

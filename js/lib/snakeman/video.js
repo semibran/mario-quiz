@@ -192,7 +192,6 @@ define(["./geometry"], function(geometry){
 		this.canvas.height = this._size.y;
 
 		this.ctx = this.canvas.getContext("2d");
-		this.ctx.webkitImageSmoothingEnabled = false;
 		this.ctx.mozImageSmoothingEnabled = false;
 		this.ctx.imageSmoothingEnabled = false;
 
@@ -230,6 +229,8 @@ define(["./geometry"], function(geometry){
 			this.ctx.fillRect(0, 0, this.size.x, this.size.y);
 		},
 		blit: function(other, offset){
+			if (!other.canvas)
+				throw "SnakemanError: Blit target is not a valid Surface object";
 			offset = offset || new geometry.Vector(0, 0);
 			this.ctx.drawImage(other.canvas, offset.x, offset.y);
 		},

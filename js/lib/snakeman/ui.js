@@ -18,13 +18,6 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 				tile:     new geometry.Vector(16, 16)
 			}
 		];
-		// config.stages.some(function(stage){
-		// 	items.push({
-		// 		src:      "./js/app/stage/"+stage+"/box-"+stage+".png",
-		// 		id:       "box-"+stage,
-		// 		tile:     new geometry.Vector(16, 16)
-		// 	});
-		// });
 		video.load(items, function(){
 			var s = video.tilesets["box-default"];
 			box.cache["default"] = {
@@ -38,20 +31,6 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 				D:  s[2][1],
 				DR: s[2][2]
 			};
-			// config.stages.some(function(stage){
-			// 	var s = video.tilesets["box-"+stage];
-			// 	box.cache[stage] = {
-			// 		UL: s[0][0],
-			// 		U:  s[0][1],
-			// 		UR: s[0][2],
-			// 		L:  s[1][0],
-			// 		C:  s[1][1],
-			// 		R:  s[1][2],
-			// 		DL: s[2][0],
-			// 		D:  s[2][1],
-			// 		DR: s[2][2]
-			// 	};
-			// });
 			box.init();
 			exports.initialized = true;
 			callback();
@@ -86,16 +65,19 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 
 	var box = {
 		offset:     new geometry.Vector(40, 32),
+		textOffset: new geometry.Vector(24, 16),
 		size:       null,
 		surface:    null,
 		rect:       null,
 		sprite:     null,
 		animation:  null,
 		item:       null,
+		textbox:    null,
+		texts:      [],
 		queue:      [],
-		textboxes:  [],
 		cache:      {},
 		min:        {},
+		mid:        {},
 		max:        {},
 		init:       function() {
 			var s = new geometry.Vector(config.tileSize, config.tileSize), c = video.display.rect.center;
@@ -104,10 +86,23 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 			this.rect         = new geometry.Rect  (this.offset, this.size);
 			this.sprite       = new video.Sprite   (this.rect, this.surface).attach();
 			this.sprite.depth = 4;
+
+			var textSize    = new geometry.Vector(0, 0),
+			    textRect    = new geometry.Rect(this.textOffset, textSize),
+			    textSurface = new video.Surface(textSize);
+
+			this.textbox = new video.Sprite(textRect, textSurface).attach(this.sprite);
+			this.textbox.surface.fill(video.colors.red);
+			
 			this.min = {
 				size: s,
 				rect: new geometry.Rect(c.x - s.x / 2, c.y - s.y / 2, s.x, s.y),
 				surface: new video.Surface(s)
+			};
+			this.mid = {
+				size: this.rect.size,
+				rect: this.rect.clone(),
+				surface: this.surface.clone()
 			};
 			this.max = {
 				size: this.rect.size,
@@ -150,60 +145,84 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		clear:      function() {
 			this.surface.clear();
 		},
-		reset:      function() {
-			this.hideText();
-			this.textboxes.some(function(child){
-				if (child.rectAbsolute) {
-					input.mouse.unmark(child.rectAbsolute);
-				}
-			});
-			this.sprite.children.some(function(child){ child.detach(this.sprite); }, this);
-			this.textboxes.length = 0;
-		},
 		text:     function(content, align) {
-			align = align || "center";
-			if (content.constructor.name === "Array") {
-				content.some(function(entry, index){
-					this.text(entry, align);
-				}, this);
-			} else {
+			function temp(content, align) {
+				align = align || "left";
 				var x, y, rect, text, item = null;
 				if (content.constructor.name === "Object") {
 					item = content;
-					content = item.text;
+					content = (item.indent || "") + item.text;
 					align = item.align || align;
 				}
-				x = config.tileSize * 2;
-				y = config.tileSize;
-				this.textboxes.some(function(text){ y += text.rect.height + 8; });
-				rect = new geometry.Rect(x, y, this.max.rect.width - x * 2, 0);
+				x = 0;
+				y = 0;
+				this.textbox.children.some(function(text){ y += text.rect.height + 8; });
+				rect = new geometry.Rect(x, y, this.max.rect.size.x - this.textOffset.x * 2, 0);
 				text = new Text(rect, content, align, true);
 				if (item)
 					text.callback = item.callback;
-				this.textboxes.push(text);
+				text.sprite.attach(this.textbox);
+				this.texts.push(text);
 			}
-			height = config.tileSize * 2 - 12;
-			this.textboxes.some(function(text){ height += text.rect.height + 8; });
-			this.resize(this.max.rect.width, height);
+			if (content.constructor.name === "Array") {
+
+				content.some(function(entry, index){
+					temp.apply(this, [entry, !index ? "center" : align]);
+				}, this);
+			} else {
+				temp(content, align);
+			}
+			var width = 0,
+			    height = 0;
+			this.textbox.children.some(function(text){
+				if (text.rect.width > width)
+					width = text.rect.width;
+				height += text.rect.height + 8;
+			});
+			height -= 12;
+
+			if (width + this.textOffset.x * 2 > this.max.rect.width) {
+				width = this.max.rect.width - this.textOffset.x * 2;
+			}
+
+			this.textbox.rect.size.set(width, height);
+			this.textbox.surface.size = this.textbox.rect.size;
+
+			this.texts.some(function(text){
+				if (text.align === "center")
+					text.rect.x = width / 2 - text.surface.size.x / 2;
+			}, this);
+
+			width += this.textOffset.x * 2;
+			height += this.textOffset.y * 2;
+			this.resize(width, height);
 			return this;
 		},
+		clearText:  function() {
+			this.hideText();
+			this.textbox.surface.clear();
+			this.textbox.children.some(function(child){
+				child.detach(this.textbox);
+			}, this);
+			this.textbox.children.length = 0;
+			this.texts.length = 0;
+		},
 		hideText:   function() {
-			this.textboxes.some(function(child){
-				if (child.rectAbsolute) {
+			// this.textbox.visible = false;
+			this.texts.some(function(child){
+				if (child.rectAbsolute)
 					input.mouse.unmark(child.rectAbsolute);
-				}
-				child.detach(this);
 			}, this);
 		},
 		showText:   function() {
-			this.textboxes.some(function(child){
+			// this.textbox.visible = true;
+			this.texts.some(function(child){
 				if (child.callback) {
-					child.rectAbsolute = child.rect.added(box.offset);
+					child.rectAbsolute = child.rect.added(box.offset).added(box.textOffset);
 					input.mouse.mark(child.rectAbsolute, function() {
 						child.callback.call(box);
 					});
 				}
-				child.attach(this);
 			}, this);
 		},
 		resize:     function(width, height) {
@@ -215,8 +234,8 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 
 			this.size.set(width, height);
 			this.rect.size.set(width, height);
-			this.max.rect     = r.clone();
-			this.max.size     = r.size.clone();
+			this.mid.rect     = r.clone();
+			this.mid.size     = r.size.clone();
 			r.pos.set(c.x - r.width / 2, c.y - r.height / 2);
 			this.surface.size = r.size;
 			this.draw();
@@ -243,19 +262,25 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 					this.item.content = [this.item.content];
 				var c = this.item.close, content;
 				content = [].slice.call(this.item.content);
+
+
 				if (c) {
 					if (c.constructor.name === "Object") {
 						content.push({
 							text:     c.text,
 							align:    c.align || "center",
+							indent:   c.indent || "",
 							callback: c.callback || function(){
+								audio.play("bonus");
 								this.collapse(c.callback);
 							}
 						});
 					} else if (c.constructor.name === "String") {
 						content.push({
 							text:     c,
+							align:    "center",
 							callback: function(){
+								audio.play("bonus");
 								this.collapse(this.item.callback);
 							}
 						});
@@ -267,16 +292,17 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 						}, 1000 * box.item.close);
 					}
 				}
+
 				this.expand(content);
 			}
 		},
 		expand:     function(text, callback) {
 			this.clear();
-			this.reset();
+			this.clearText();
 			this.text(text);
 			this.sprite.visible = true;
 			exports.shadowed = true;
-			this.animation = new Animation(this.min.rect, this.max.rect, function(){
+			this.animation = new Animation(this.min.rect, this.mid.rect, function(){
 				this.animation = null;
 				this.showText();
 				if (this.item && !this.item.close && this.queue.length > 1)
@@ -288,8 +314,8 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		collapse:   function(callback) {
 			if (this.animation) throw "SnakemanError: Attempted collapse during animation";
 			this.clear();
-			this.reset();
-			this.animation = new Animation(this.max.rect, this.min.rect, function(){
+			this.clearText();
+			this.animation = new Animation(this.mid.rect, this.min.rect, function(){
 				this.animation = null;
 				this.queue.shift();
 				this.item = null;
@@ -375,13 +401,13 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 		this.sprite = new video.Sprite(this.rect, this.surface);
 		this.sprite.depth = 5;
 		this.content = content;
-		this.align = align || "center";
+		this.align = align || "left";
 		this.shadow = shadow;
 		this.callback = null;
 
 		var t = content, tx = 0, ty = 0, wx, word, letters = [];
 		for (var i = 0; i < t.length; i ++) {
-			while (tx == 0 && t[i] === " ") i ++;
+			while (tx == 0 && t[i] === " " && ty > 0) i ++;
 			var c = t[i];
 			if (!word || c === " ") {
 				word = "";
@@ -424,10 +450,6 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 
 		var temp = this.rect.size.x;
 		this.rect.size.set(width * s, letters.length * (s + 4));
-		if (this.align == "left")
-			this.rect.pos.set(pos.x, pos.y);
-		else if (this.align == "center")
-			this.rect.pos.set(pos.x + temp / 2 - this.rect.size.x / 2, pos.y);
 		this.surface.size = this.rect.size;
 
 		var prev, surf, x, gx = 0, y;
@@ -436,7 +458,10 @@ define(["./geometry", "./video", "./input"], function(geometry, video, ui) {
 			line.some(function(letter){
 				surf.blit(letter.surface, new geometry.Vector(letter.pos * s, 0));
 			});
-			x = this.surface.size.x / 2 - line.length * s / 2;
+			if (this.align == "left")
+				x = 0;
+			else if (this.align == "center")
+				x = this.surface.size.x / 2 - line.length * s / 2;
 			y = index * (s + 4);
 			this.surface.blit(surf, new geometry.Vector(x, y));
 			if (line.length > gx) gx = line.length;

@@ -3,7 +3,7 @@ define(function(){
 		sound = {},
 		files = {
 			bgm: [],
-			sfx: ["pipe", "bump", "coin", "1up", "pause", "oops"]
+			sfx: ["pipe", "bump", "coin", "1up", "pause", "oops", "bonus", "fireball", "squish"]
 		},
 		sequencer,
 		bgm,
@@ -68,39 +68,41 @@ define(function(){
 	function load(id, type, callback) {
 		var index = 0, data = [], audio;
 		if (!sound[id]) {
-			function loadSound(id, type, index, callback) {
-				var request = new XMLHttpRequest(),
-				    url = "./js/app/sound/"+type+"/"+id+"/"+id+"-"+index+".wav";
+			require(["./js/app/sound/"+type+"/"+id+"/meta.js"], function(meta) {
+				function loadSound(id, type, index, callback) {
+					var request = new XMLHttpRequest(),
+					    url = "./js/app/sound/"+type+"/"+id+"/"+id+"-"+meta.channels[index]+".wav";
 
-				function complete(buffer) {
-					data.push(buffer);
-					if (++index < channels) loadSound(id, type, index, callback);
-					else {
-						sound[id] = {
-							data: data,
-							type: type
-						};
-						callback.call(this, data);
+					function complete(buffer) {
+						data.push(buffer);
+						if (++ index < meta.channels.length) loadSound(id, type, index, callback);
+						else {
+							sound[id] = {
+								data: data,
+								type: type
+							};
+							callback.call(this, data);
+						}
 					}
+
+					request.open("GET", url, true);
+					request.responseType = "arraybuffer";
+
+					request.onload = function(event) {
+						if(event.target.status === 404) {
+							complete(null);
+						} else {
+							sequencer.ctx.decodeAudioData(request.response,
+								function(buffer){
+									complete(buffer);
+								}
+							);
+						}
+					};
+					request.send();
 				}
-
-				request.open("GET", url, true);
-				request.responseType = "arraybuffer";
-
-				request.onload = function(event) {
-					if(event.target.status === 404) {
-						complete(null);
-					} else {
-						sequencer.ctx.decodeAudioData(request.response,
-							function(buffer){
-								complete(buffer);
-							}
-						);
-					}
-				};
-				request.send();
-			}
-			loadSound(id, type, index, callback);
+				loadSound(id, type, index, callback);
+			});
 		} else {
 			callback.call(this, data);
 		}
